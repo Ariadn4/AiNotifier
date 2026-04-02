@@ -1,0 +1,94 @@
+<Window x:Class="AiNotifier.SoundSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="提示音效设置"
+        Width="420" Height="360"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="White">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Stop sound section -->
+        <TextBlock Grid.Row="0" Text="回应完毕提示音" FontSize="13" FontWeight="SemiBold"
+                   Foreground="#1E293B" Margin="0,0,0,8"/>
+        <Border Grid.Row="1" Background="#f9fafb" BorderBrush="#e2e8f0" BorderThickness="1"
+                CornerRadius="8" Padding="12,8" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <ComboBox x:Name="StopSoundCombo" Width="200" Height="28" FontSize="12"
+                          VerticalContentAlignment="Center" Cursor="Hand"/>
+                <Button x:Name="StopPreviewBtn" Content="试听" Width="50" Height="28"
+                        Margin="8,0,0,0" FontSize="12" Cursor="Hand"
+                        Background="#f3f4f6" Foreground="#374151"
+                        BorderBrush="#d1d5db" BorderThickness="1"
+                        Click="StopPreview_Click"/>
+                <Button Content="自定义…" Width="60" Height="28"
+                        Margin="8,0,0,0" FontSize="12" Cursor="Hand"
+                        Background="#f3f4f6" Foreground="#6b7280"
+                        BorderBrush="#d1d5db" BorderThickness="1"
+                        Click="StopCustom_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Notification sound section -->
+        <TextBlock Grid.Row="2" Text="通知提示音" FontSize="13" FontWeight="SemiBold"
+                   Foreground="#1E293B" Margin="0,0,0,8"/>
+        <Border Grid.Row="3" Background="#f9fafb" BorderBrush="#e2e8f0" BorderThickness="1"
+                CornerRadius="8" Padding="12,8" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <ComboBox x:Name="NotifSoundCombo" Width="200" Height="28" FontSize="12"
+                          VerticalContentAlignment="Center" Cursor="Hand"/>
+                <Button x:Name="NotifPreviewBtn" Content="试听" Width="50" Height="28"
+                        Margin="8,0,0,0" FontSize="12" Cursor="Hand"
+                        Background="#f3f4f6" Foreground="#374151"
+                        BorderBrush="#d1d5db" BorderThickness="1"
+                        Click="NotifPreview_Click"/>
+                <Button Content="自定义…" Width="60" Height="28"
+                        Margin="8,0,0,0" FontSize="12" Cursor="Hand"
+                        Background="#f3f4f6" Foreground="#6b7280"
+                        BorderBrush="#d1d5db" BorderThickness="1"
+                        Click="NotifCustom_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Volume section -->
+        <StackPanel Grid.Row="4" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="音量" FontSize="13" FontWeight="SemiBold"
+                           Foreground="#1E293B" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Text="🔈" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <Slider x:Name="VolumeSlider" Width="200" Minimum="0" Maximum="1"
+                        VerticalAlignment="Center" SmallChange="0.05" LargeChange="0.1"
+                        IsSnapToTickEnabled="True" TickFrequency="0.05"/>
+                <TextBlock x:Name="VolumeLabel" FontSize="12" Foreground="#6b7280"
+                           VerticalAlignment="Center" Margin="8,0,0,0" Width="32"
+                           TextAlignment="Right"/>
+            </StackPanel>
+            <CheckBox x:Name="GradualVolumeCheck" Content="渐强音量（仅长提醒有效）"
+                      FontSize="12" Foreground="#374151" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="取消" Width="70" Height="30"
+                    Click="Cancel_Click"
+                    Background="#f3f4f6" Foreground="#6b7280"
+                    BorderBrush="#d1d5db" BorderThickness="1"
+                    Cursor="Hand" Margin="0,0,8,0"/>
+            <Button Content="确定" Width="70" Height="30"
+                    Click="OK_Click"
+                    Background="#0284c7" Foreground="White"
+                    BorderBrush="#0284c7" BorderThickness="1"
+                    Cursor="Hand"/>
+        </StackPanel>
+    </Grid>
+</Window>

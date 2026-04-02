@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Ping - 天蓝小机器人设计</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0c14;
+    --surface: #111420;
+    --surface-2: #181c2e;
+    --border: #252a40;
+    --text: #eaeaf5;
+    --text-dim: #7c82a0;
+    --sky: #38bdf8;
+    --sky-deep: #0284c7;
+    --sky-light: #7dd3fc;
+    --amber: #fbbf24;
+    --amber-deep: #d97706;
+    --gray-mid: #4b5563;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+  }
+
+  .header { text-align: center; padding: 56px 20px 36px; }
+  .header h1 {
+    font-size: 2.2rem; font-weight: 800;
+    background: linear-gradient(135deg, #7dd3fc, #38bdf8, #818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--text-dim); font-size: 0.95rem; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+
+  .section-title {
+    font-size: 0.82rem; font-weight: 700; color: var(--sky);
+    margin: 48px 0 24px; text-transform: uppercase; letter-spacing: 0.12em;
+  }
+
+  /* Demo Grid */
+  .demo-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; justify-items: center; }
+  @media(max-width:700px){ .demo-grid{ grid-template-columns:1fr; } }
+
+  .demo-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 44px 24px 24px; display: flex; flex-direction: column; align-items: center;
+    gap: 20px; width: 100%; transition: border-color 0.3s;
+  }
+  .demo-card:hover { border-color: var(--sky); }
+  .demo-card .label { font-size: 0.85rem; font-weight: 700; }
+  .demo-card .sublabel { font-size: 0.72rem; color: var(--text-dim); margin-top: -12px; }
+
+  /* Ball */
+  .ball-wrap { position: relative; width: 72px; height: 72px; }
+
+  /* Ripples — alert only */
+  .ripple {
+    position: absolute; top: 50%; left: 50%; width: 72px; height: 72px;
+    border-radius: 50%; transform: translate(-50%,-50%) scale(1);
+    opacity: 0; z-index: 0; pointer-events: none;
+  }
+  .ball-wrap.alert .ripple {
+    border: 2px solid var(--amber);
+    animation: rip 1.2s ease-out infinite;
+  }
+  .ball-wrap.alert .ripple:nth-child(2){ animation-delay:0.4s; }
+  .ball-wrap.alert .ripple:nth-child(3){ animation-delay:0.8s; }
+  @keyframes rip {
+    0%{ transform:translate(-50%,-50%) scale(1); opacity:0.55; }
+    100%{ transform:translate(-50%,-50%) scale(2.3); opacity:0; }
+  }
+
+  .ball {
+    width: 72px; height: 72px; border-radius: 50%; position: relative;
+    cursor: pointer; z-index: 2;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ball:hover { transform: scale(1.1); }
+  .ball:active { transform: scale(0.92); }
+
+  .ball.on {
+    background: radial-gradient(circle at 38% 30%, #7dd3fc, #0284c7);
+    box-shadow: 0 0 20px rgba(56,189,248,0.25), 0 4px 16px rgba(0,0,0,0.4),
+      inset 0 -3px 8px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.18);
+  }
+  .ball.alert {
+    background: radial-gradient(circle at 38% 30%, #fbbf24, #d97706);
+    box-shadow: 0 0 28px rgba(251,191,36,0.35), 0 4px 16px rgba(0,0,0,0.4),
+      inset 0 -3px 8px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.2);
+    animation: wiggle 0.35s ease-in-out infinite alternate;
+  }
+  @keyframes wiggle { 0%{transform:rotate(-4deg) scale(1);} 100%{transform:rotate(4deg) scale(1.04);} }
+
+  .ball.off {
+    background: radial-gradient(circle at 38% 30%, #6b7280, #374151);
+    box-shadow: inset 0 -3px 8px rgba(0,0,0,0.35), inset 0 2px 4px rgba(255,255,255,0.06);
+  }
+
+  .robot-icon { z-index: 3; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); }
+
+  /* Antenna animations */
+  @keyframes glow-blue { 0%,100%{ opacity:0.5; } 50%{ opacity:1; } }
+  @keyframes glow-amber { 0%,100%{ opacity:0.3; } 50%{ opacity:1; } }
+  .ant-on { animation: glow-blue 2.5s ease-in-out infinite; }
+  .ant-alert { animation: glow-amber 0.5s ease-in-out infinite; }
+
+  /* Eye blink */
+  @keyframes eblink { 0%,42%,46%,100%{ transform:scaleY(1); } 44%{ transform:scaleY(0.1); } }
+  .eye-blink { animation: eblink 3.8s ease-in-out infinite; transform-origin: center; }
+
+  /* ICO */
+  .ico-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 24px; justify-items: center; }
+  .ico-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px 20px 20px; display: flex; flex-direction: column; align-items: center; gap: 14px;
+    transition: border-color 0.3s;
+  }
+  .ico-card:hover { border-color: var(--sky); }
+  .ico-card .size { font-size: 0.7rem; color: var(--text-dim); font-family: monospace; }
+
+  /* Menu */
+  .menu-wrap { display: flex; justify-content: center; margin-top: 8px; }
+  .context-menu {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 6px; width: 210px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .menu-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
+    font-size: 0.8rem; cursor: default; transition: background 0.15s;
+  }
+  .menu-item:hover { background: rgba(56,189,248,0.08); }
+  .menu-item svg { width: 15px; height: 15px; opacity: 0.55; flex-shrink: 0; }
+  .menu-item .sc { margin-left: auto; font-size: 0.65rem; color: #555568; font-family: monospace; }
+  .menu-div { height: 1px; background: var(--border); margin: 4px 8px; }
+  .menu-item.danger { color: #ef4444; }
+  .toggle-t { width: 30px; height: 17px; background: var(--sky-deep); border-radius: 9px; position: relative; margin-left: auto; }
+  .toggle-t::after { content:''; position:absolute; top:2px; right:2px; width:13px; height:13px; background:white; border-radius:50%; }
+
+  /* Interaction */
+  .int-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 16px; }
+  .int-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .int-card h4 { font-size: 0.8rem; font-weight: 700; color: var(--sky); margin-bottom: 6px; }
+  .int-card p { font-size: 0.76rem; color: var(--text-dim); line-height: 1.6; }
+
+  /* Spec */
+  .spec-block { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+  .spec-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.84rem; }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-key { color: var(--text-dim); }
+  .spec-val { font-weight: 600; }
+  .cd { display:inline-block; width:12px; height:12px; border-radius:50%; vertical-align:middle; margin-right:6px; border:1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AI Ping</h1>
+  <p>天蓝小机器人 · 悬浮球 & ICO 设计方案</p>
+</div>
+
+<div class="container">
+
+  <!-- ═══ 三态 ═══ -->
+  <div class="section-title">● 悬浮球 · 三种状态</div>
+  <div class="demo-grid">
+
+    <!-- ON — no ripple, calm robot -->
+    <div class="demo-card">
+      <div class="ball-wrap on">
+        <div class="ball on">
+          <svg class="robot-icon" width="46" height="46" viewBox="-2 -2 104 84">
+            <line x1="50" y1="18" x2="50" y2="6" stroke="white" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="50" cy="4" r="4" fill="#bae6fd" class="ant-on"/>
+            <rect x="24" y="18" width="52" height="42" rx="14" fill="white" opacity="0.95"/>
+            <g class="eye-blink">
+              <ellipse cx="38" cy="38" rx="6.5" ry="7" fill="#0284c7"/>
+              <circle cx="36" cy="35.5" r="2.2" fill="white" opacity="0.65"/>
+            </g>
+            <g class="eye-blink" style="animation-delay:0.15s">
+              <ellipse cx="62" cy="38" rx="6.5" ry="7" fill="#0284c7"/>
+              <circle cx="60" cy="35.5" r="2.2" fill="white" opacity="0.65"/>
+            </g>
+            <!-- blush -->
+            <ellipse cx="28" cy="48" rx="6" ry="3" fill="#fda4af" opacity="0.35"/>
+            <ellipse cx="72" cy="48" rx="6" ry="3" fill="#fda4af" opacity="0.35"/>
+            <!-- smile -->
+            <path d="M38 50 Q50 60 62 50" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+            <!-- ears -->
+            <rect x="14" y="30" width="10" height="16" rx="5" fill="white" opacity="0.8"/>
+            <rect x="76" y="30" width="10" height="16" rx="5" fill="white" opacity="0.8"/>
+            <!-- body -->
+            <rect x="36" y="62" width="28" height="14" rx="7" fill="white" opacity="0.7"/>
+            <circle cx="44" cy="69" r="2" fill="#0284c7" opacity="0.5"/>
+            <circle cx="50" cy="69" r="2" fill="#38bdf8" opacity="0.5"/>
+            <circle cx="56" cy="69" r="2" fill="#0284c7" opacity="0.5"/>
+          </svg>
+        </div>
+      </div>
+      <div class="label">监听中 · ON</div>
+      <div class="sublabel">安静微笑 + 偶尔眨眼 + 天线柔光</div>
+    </div>
+
+    <!-- ALERT -->
+    <div class="demo-card">
+      <div class="ball-wrap alert">
+        <div class="ripple"></div><div class="ripple"></div><div class="ripple"></div>
+        <div class="ball alert">
+          <svg class="robot-icon" width="46" height="46" viewBox="-2 -2 104 84">
+            <line x1="50" y1="18" x2="50" y2="6" stroke="white" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="50" cy="4" r="5" fill="#fef08a" class="ant-alert"/>
+            <rect x="24" y="18" width="52" height="42" rx="14" fill="white" opacity="0.95"/>
+            <circle cx="38" cy="38" r="7" fill="#d97706"/>
+            <circle cx="38" cy="38" r="3.5" fill="white"/>
+            <circle cx="62" cy="38" r="7" fill="#d97706"/>
+            <circle cx="62" cy="38" r="3.5" fill="white"/>
+            <ellipse cx="50" cy="53" rx="7" ry="5" fill="#d97706"/>
+            <ellipse cx="50" cy="51.5" rx="5" ry="2.5" fill="white" opacity="0.5"/>
+            <rect x="14" y="30" width="10" height="16" rx="5" fill="white" opacity="0.8"/>
+            <rect x="76" y="30" width="10" height="16" rx="5" fill="white" opacity="0.8"/>
+            <rect x="36" y="62" width="28" height="14" rx="7" fill="white" opacity="0.7"/>
+            <circle cx="44" cy="69" r="2" fill="#d97706" opacity="0.7"/>
+            <circle cx="50" cy="69" r="2" fill="#fbbf24" opacity="0.7"/>
+            <circle cx="56" cy="69" r="2" fill="#d97706" opacity="0.7"/>
+            <text x="80" y="22" font-size="14" font-weight="800" fill="white" opacity="0.8">!</text>
+            <text x="16" y="22" font-size="11" font-weight="800" fill="white" opacity="0.5">!</text>
+          </svg>
+        </div>
+      </div>
+      <div class="label">提醒中 · ALERT</div>
+      <div class="sublabel">惊喜圆眼 + 摇摆 + 脉冲波纹</div>
+    </div>
+
+    <!-- OFF -->
+    <div class="demo-card">
+      <div class="ball-wrap off">
+        <div class="ball off">
+          <svg class="robot-icon" width="46" height="46" viewBox="-2 -2 104 84">
+            <line x1="50" y1="18" x2="50" y2="6" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="50" cy="4" r="4" fill="rgba(255,255,255,0.15)"/>
+            <rect x="24" y="18" width="52" height="42" rx="14" fill="white" opacity="0.4"/>
+            <line x1="31" y1="39" x2="45" y2="39" stroke="#6b7280" stroke-width="3" stroke-linecap="round"/>
+            <line x1="55" y1="39" x2="69" y2="39" stroke="#6b7280" stroke-width="3" stroke-linecap="round"/>
+            <line x1="42" y1="52" x2="58" y2="52" stroke="#6b7280" stroke-width="2.5" stroke-linecap="round"/>
+            <text x="72" y="18" font-size="11" font-weight="800" fill="rgba(255,255,255,0.3)" font-family="Nunito">z</text>
+            <text x="80" y="12" font-size="9" font-weight="800" fill="rgba(255,255,255,0.2)" font-family="Nunito">z</text>
+            <rect x="14" y="30" width="10" height="16" rx="5" fill="white" opacity="0.3"/>
+            <rect x="76" y="30" width="10" height="16" rx="5" fill="white" opacity="0.3"/>
+            <rect x="36" y="62" width="28" height="14" rx="7" fill="white" opacity="0.25"/>
+          </svg>
+        </div>
+      </div>
+      <div class="label">已关闭 · OFF</div>
+      <div class="sublabel">打瞌睡 zzZ · 灰调静态</div>
+    </div>
+  </div>
+
+  <!-- ═══ 交互 ═══ -->
+  <div class="section-title">⚡ 交互行为</div>
+  <div class="int-grid">
+    <div class="int-card"><h4>左键单击</h4><p>ON ↔ OFF 切换。提醒中点击 → 停止提醒回到 ON。</p></div>
+    <div class="int-card"><h4>右键点击</h4><p>弹出上下文菜单，设置音效/音量/监听目标等。</p></div>
+    <div class="int-card"><h4>拖拽移动</h4><p>自由拖到屏幕任意位置，松手自动吸附屏幕边缘。</p></div>
+    <div class="int-card"><h4>鼠标悬停</h4><p>机器人弹性放大，Tooltip 显示状态和上次触发时间。</p></div>
+  </div>
+
+  <!-- ═══ 右键菜单 ═══ -->
+  <div class="section-title">📋 右键菜单</div>
+  <div class="menu-wrap">
+    <div class="context-menu">
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>声音提示</span>
+        <div class="toggle-t"></div>
+      </div>
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <span>音量</span><span class="sc">80%</span>
+      </div>
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span>提示音效</span><span class="sc">▸</span>
+      </div>
+      <div class="menu-div"></div>
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>监听目标</span><span class="sc">▸</span>
+      </div>
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>静默时段</span><span class="sc">▸</span>
+      </div>
+      <div class="menu-div"></div>
+      <div class="menu-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>偏好设置…</span>
+      </div>
+      <div class="menu-div"></div>
+      <div class="menu-item danger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        <span>退出 AI Ping</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ICO ═══ -->
+  <div class="section-title">🎨 ICO 图标 · 多尺寸预览</div>
+  <div class="ico-grid">
+
+    <!-- 256 -->
+    <div class="ico-card">
+      <svg width="108" height="108" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="ibg" cx="40%" cy="30%" r="70%"><stop offset="0%" stop-color="#1a2236"/><stop offset="100%" stop-color="#0c1220"/></radialGradient>
+          <filter id="ig"><feGaussianBlur stdDeviation="5" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+          <filter id="iog"><feGaussianBlur stdDeviation="14"/></filter>
+        </defs>
+        <rect width="256" height="256" rx="58" fill="url(#ibg)"/>
+        <ellipse cx="128" cy="132" rx="68" ry="64" fill="#38bdf8" opacity="0.08" filter="url(#iog)"/>
+        <!-- body -->
+        <rect x="88" y="154" width="80" height="36" rx="18" fill="white" opacity="0.18"/>
+        <circle cx="112" cy="172" r="4" fill="#0284c7" opacity="0.45"/>
+        <circle cx="128" cy="172" r="4" fill="#38bdf8" opacity="0.45"/>
+        <circle cx="144" cy="172" r="4" fill="#0284c7" opacity="0.45"/>
+        <!-- antenna -->
+        <line x1="128" y1="62" x2="128" y2="38" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.75"/>
+        <circle cx="128" cy="34" r="8" fill="#7dd3fc"/>
+        <circle cx="128" cy="34" r="4" fill="white" opacity="0.5"/>
+        <!-- head -->
+        <rect x="68" y="62" width="120" height="90" rx="32" fill="white" opacity="0.92" filter="url(#ig)"/>
+        <!-- ears -->
+        <rect x="48" y="86" width="22" height="38" rx="11" fill="white" opacity="0.6"/>
+        <rect x="186" y="86" width="22" height="38" rx="11" fill="white" opacity="0.6"/>
+        <!-- eyes -->
+        <ellipse cx="105" cy="105" rx="14" ry="15" fill="#0284c7"/>
+        <circle cx="101" cy="100" r="5" fill="white" opacity="0.55"/>
+        <ellipse cx="151" cy="105" rx="14" ry="15" fill="#0284c7"/>
+        <circle cx="147" cy="100" r="5" fill="white" opacity="0.55"/>
+        <!-- blush -->
+        <ellipse cx="88" cy="122" rx="10" ry="5" fill="#fda4af" opacity="0.28"/>
+        <ellipse cx="168" cy="122" rx="10" ry="5" fill="#fda4af" opacity="0.28"/>
+        <!-- smile -->
+        <path d="M108 128 Q128 144 148 128" fill="none" stroke="#0284c7" stroke-width="5" stroke-linecap="round"/>
+        <!-- label -->
+        <text x="128" y="218" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="24" fill="white" opacity="0.8" letter-spacing="3">AI PING</text>
+      </svg>
+      <div class="size">256 × 256</div>
+    </div>
+
+    <!-- 64 -->
+    <div class="ico-card">
+      <svg width="72" height="72" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="15" fill="#0c1220"/>
+        <rect x="21" y="38" width="22" height="10" rx="5" fill="white" opacity="0.13"/>
+        <line x1="32" y1="16" x2="32" y2="10" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+        <circle cx="32" cy="8.5" r="2.5" fill="#7dd3fc"/>
+        <rect x="16" y="16" width="32" height="24" rx="9" fill="white" opacity="0.9"/>
+        <rect x="11" y="22" width="6" height="10" rx="3" fill="white" opacity="0.5"/>
+        <rect x="47" y="22" width="6" height="10" rx="3" fill="white" opacity="0.5"/>
+        <ellipse cx="26.5" cy="27" rx="4" ry="4.2" fill="#0284c7"/>
+        <circle cx="25" cy="25.5" r="1.5" fill="white" opacity="0.5"/>
+        <ellipse cx="37.5" cy="27" rx="4" ry="4.2" fill="#0284c7"/>
+        <circle cx="36" cy="25.5" r="1.5" fill="white" opacity="0.5"/>
+        <ellipse cx="22" cy="31" rx="3" ry="1.5" fill="#fda4af" opacity="0.22"/>
+        <ellipse cx="42" cy="31" rx="3" ry="1.5" fill="#fda4af" opacity="0.22"/>
+        <path d="M27 33 Q32 37.5 37 33" fill="none" stroke="#0284c7" stroke-width="1.8" stroke-linecap="round"/>
+        <text x="32" y="56" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="6.5" fill="white" opacity="0.65" letter-spacing="0.8">AI PING</text>
+      </svg>
+      <div class="size">64 × 64</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ 规格 ═══ -->
+  <div class="section-title">📐 设计规格</div>
+  <div class="spec-block">
+    <div class="spec-row"><span class="spec-key">形象</span><span class="spec-val">圆头机器人：天线 + 圆耳 + 表情脸 + 腮红 + 小身体</span></div>
+    <div class="spec-row"><span class="spec-key">悬浮球尺寸</span><span class="spec-val">72 × 72 px（可调 48~88）</span></div>
+    <div class="spec-row"><span class="spec-key">ON 状态</span><span class="spec-val">安静微笑 + 偶尔眨眼 + 天线柔光（无脉冲）</span></div>
+    <div class="spec-row"><span class="spec-key">ALERT 状态</span><span class="spec-val">惊喜圆眼张嘴 + 摇摆 + 天线急闪 + 脉冲波纹</span></div>
+    <div class="spec-row"><span class="spec-key">OFF 状态</span><span class="spec-val">闭眼一字嘴 + zzZ + 灰调 + 天线熄灭</span></div>
+    <div class="spec-row"><span class="spec-key">ON 配色</span><span class="spec-val"><span class="cd" style="background:#0284c7"></span>#0284c7 → #7dd3fc 天蓝渐变</span></div>
+    <div class="spec-row"><span class="spec-key">ALERT 配色</span><span class="spec-val"><span class="cd" style="background:#d97706"></span>#d97706 → #fbbf24 琥珀渐变</span></div>
+    <div class="spec-row"><span class="spec-key">OFF 配色</span><span class="spec-val"><span class="cd" style="background:#4b5563"></span>#374151 → #6b7280 灰调</span></div>
+    <div class="spec-row"><span class="spec-key">ICO 背景</span><span class="spec-val"><span class="cd" style="background:#0c1220"></span>#0C1220 深蓝夜色</span></div>
+    <div class="spec-row"><span class="spec-key">机器人配色</span><span class="spec-val">白色主体 + 天蓝眼/嘴 + 粉色腮红</span></div>
+    <div class="spec-row"><span class="spec-key">ICO 尺寸</span><span class="spec-val">256 / 64 px</span></div>
+  </div>
+
+</div>
+</body>
+</html>
