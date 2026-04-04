@@ -72,6 +72,8 @@ public partial class MainWindow : Window
 
     // System tray
     private WinForms.NotifyIcon? _trayIcon;
+    private WinForms.ToolStripMenuItem? _trayShowItem;
+    private WinForms.ToolStripMenuItem? _trayExitItem;
 
     // Storyboards
     private Storyboard? _eyeBlinkStory;
@@ -80,19 +82,23 @@ public partial class MainWindow : Window
     private Storyboard? _rippleStory;
     private Storyboard? _antennaFlashStory;
 
-    // Bubble
-    private BubbleWindow? _bubbleWindow;
-    private DateTime _lastBubbleTime = DateTime.MinValue;
-    private readonly Random _bubbleRandom = new();
+    // Nudge (碎碎念)
+    private NudgeWindow? _nudgeWindow;
+    private DateTime _lastNudgeTime = DateTime.MinValue;
+    private readonly Random _nudgeRandom = new();
+    private int _nudgeMessageIndex;
+    private DispatcherTimer? _nudgeCooldownTimer;
 
     // Project notification bubble
-    private NotificationBubbleWindow? _notificationBubbleWindow;
+    private NotificationBubbleWindow? _notificationNudgeWindow;
 
-    private static readonly string[] DefaultBubbleMessages =
+    private static LocalizationService L => LocalizationService.Instance;
+
+    private string[] DefaultNudgeMessages =>
     [
-        "喝杯水吧",
-        "站起来走走",
-        "眺望远处20秒",
+        L.Get("DefaultNudge_DrinkWater"),
+        L.Get("DefaultNudge_TakeWalk"),
+        L.Get("DefaultNudge_LookAway"),
     ];
 
     // Drag vs click tracking
@@ -102,6 +108,7 @@ public partial class MainWindow : Window
     // Left-click toggle: remember last enabled combination
     private bool _lastStopEnabled = true;
     private bool _lastNotificationEnabled = true;
+    private bool _lastNudgeEnabled = true;
 
     public MainWindow()
     {
@@ -122,9 +129,9 @@ public partial class MainWindow : Window
 
         NotifyServer.CleanupLog();
         _server = new NotifyServer(GetStatusText);
-        _server.StopRequested += (cwd) => { StartAlert(AlertType.Stop); ShowProjectBubble(cwd, AlertType.Stop); };
-        _server.NotifyRequested += (cwd) => { StartAlert(AlertType.Notification); ShowProjectBubble(cwd, AlertType.Notification); };
-        _server.BubbleRequested += ShowBubble;
+        _server.StopRequested += (cwd, isDup) => { StartAlert(AlertType.Stop); if (!isDup) ShowProjectBubble(cwd, AlertType.Stop); };
+        _server.NotifyRequested += (cwd, isDup) => { StartAlert(AlertType.Notification); if (!isDup) ShowProjectBubble(cwd, AlertType.Notification); };
+        _server.NudgeRequested += ShowNudge;
 
         _timeoutTimer = new DispatcherTimer
         {
@@ -138,11 +145,13 @@ public partial class MainWindow : Window
         // Initialize last enabled state from settings
         _lastStopEnabled = _settings.StopAlertEnabled;
         _lastNotificationEnabled = _settings.NotificationAlertEnabled;
+        _lastNudgeEnabled = _settings.NudgeEnabled;
 
         // Determine initial state
         if (!_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled)
             _state = AppState.Disabled;
 
+        UpdateNudgeTimer();
         InitTrayIcon();
     }
 
@@ -164,7 +173,7 @@ public partial class MainWindow : Window
             _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? "");
         }
 
-        _trayIcon.Text = "AI Ping - 监听中";
+        _trayIcon.Text = L.Get("Tray_Listening");
         _trayIcon.Visible = true;
 
         _trayIcon.DoubleClick += (_, _) =>
@@ -176,8 +185,8 @@ public partial class MainWindow : Window
 
         var menu = new WinForms.ContextMenuStrip();
 
-        var showItem = new WinForms.ToolStripMenuItem("显示悬浮球");
-        showItem.Click += (_, _) =>
+        _trayShowItem = new WinForms.ToolStripMenuItem(L.Get("Tray_ShowBall"));
+        _trayShowItem.Click += (_, _) =>
         {
             Show();
             WindowState = WindowState.Normal;
@@ -189,12 +198,12 @@ public partial class MainWindow : Window
                 Top = workArea.Height * 2 / 3;
             }
         };
-        menu.Items.Add(showItem);
+        menu.Items.Add(_trayShowItem);
         menu.Items.Add(new WinForms.ToolStripSeparator());
 
-        var exitItem = new WinForms.ToolStripMenuItem("退出");
-        exitItem.Click += (_, _) => Dispatcher.Invoke(() => Application.Current.Shutdown());
-        menu.Items.Add(exitItem);
+        _trayExitItem = new WinForms.ToolStripMenuItem(L.Get("Tray_Exit"));
+        _trayExitItem.Click += (_, _) => Dispatcher.Invoke(() => Application.Current.Shutdown());
+        menu.Items.Add(_trayExitItem);
 
         _trayIcon.ContextMenuStrip = menu;
     }
@@ -204,10 +213,10 @@ public partial class MainWindow : Window
         if (_trayIcon == null) return;
         _trayIcon.Text = _state switch
         {
-            AppState.Enabled => "AI Ping - 监听中",
-            AppState.Disabled => "AI Ping - 已关闭",
-            AppState.RingingStop => "AI Ping - 回应完毕提醒中",
-            AppState.RingingNotification => "AI Ping - 通知提醒中",
+            AppState.Enabled => L.Get("Tray_Listening"),
+            AppState.Disabled => L.Get("Tray_Disabled"),
+            AppState.RingingStop => L.Get("Tray_StopAlert"),
+            AppState.RingingNotification => L.Get("Tray_NotificationAlert"),
             _ => "AI Ping"
         };
     }
@@ -241,6 +250,7 @@ public partial class MainWindow : Window
         }
 
         ApplyVisualState(_state);
+        RefreshStaticUI();
 
         try
         {
@@ -248,7 +258,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"无法启动 HTTP 服务：{ex.Message}\n请检查端口 19836 是否被占用。",
+            System.Windows.MessageBox.Show(L.Get("Error_HttpServer", ex.Message),
                 "AI Notifier", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -292,7 +302,7 @@ public partial class MainWindow : Window
                 BodyDot1.Opacity = 0.5;
                 BodyDot2.Opacity = 0.5;
                 BodyDot3.Opacity = 0.5;
-                BallTooltip.Content = "监听中";
+                BallTooltip.Content = L.Get("Tooltip_Listening");
                 try { _eyeBlinkStory?.Begin(this, true); _antennaGlowStory?.Begin(this, true); } catch { }
                 break;
 
@@ -301,7 +311,7 @@ public partial class MainWindow : Window
                     StopRingingInner, StopRingingOuter, ShadowStopRinging,
                     DotStopRinging1, DotStopRinging2,
                     AlertFaceStop, AlertAntennaStop, StopRingingInner,
-                    "回应完毕提醒中");
+                    L.Get("Tooltip_StopAlert"));
                 break;
 
             case AppState.RingingNotification:
@@ -309,7 +319,7 @@ public partial class MainWindow : Window
                     NotificationRingingInner, NotificationRingingOuter, ShadowNotificationRinging,
                     DotNotificationRinging1, DotNotificationRinging2,
                     AlertFaceNotification, AlertAntennaNotification, NotificationRingingInner,
-                    "通知提醒中");
+                    L.Get("Tooltip_NotificationAlert"));
                 break;
 
             case AppState.Disabled:
@@ -333,7 +343,7 @@ public partial class MainWindow : Window
                 BodyDot1.Opacity = 0;
                 BodyDot2.Opacity = 0;
                 BodyDot3.Opacity = 0;
-                BallTooltip.Content = "已关闭";
+                BallTooltip.Content = L.Get("Tooltip_Disabled");
                 break;
         }
 
@@ -551,24 +561,30 @@ public partial class MainWindow : Window
                 // Save current combination before disabling
                 _lastStopEnabled = _settings.StopAlertEnabled;
                 _lastNotificationEnabled = _settings.NotificationAlertEnabled;
+                _lastNudgeEnabled = _settings.NudgeEnabled;
                 _settings.StopAlertEnabled = false;
                 _settings.NotificationAlertEnabled = false;
+                _settings.NudgeEnabled = false;
                 _state = AppState.Disabled;
                 ApplyVisualState(AppState.Disabled);
                 SaveSettings();
+                UpdateNudgeTimer();
                 break;
             case AppState.Disabled:
                 // Restore last combination (default to both if both were off)
-                if (!_lastStopEnabled && !_lastNotificationEnabled)
+                if (!_lastStopEnabled && !_lastNotificationEnabled && !_lastNudgeEnabled)
                 {
                     _lastStopEnabled = true;
                     _lastNotificationEnabled = true;
+                    _lastNudgeEnabled = true;
                 }
                 _settings.StopAlertEnabled = _lastStopEnabled;
                 _settings.NotificationAlertEnabled = _lastNotificationEnabled;
+                _settings.NudgeEnabled = _lastNudgeEnabled;
                 _state = AppState.Enabled;
                 ApplyVisualState(AppState.Enabled);
                 SaveSettings();
+                UpdateNudgeTimer();
                 break;
         }
     }
@@ -592,7 +608,7 @@ public partial class MainWindow : Window
     {
         if (IsRinging) return; // Don't change state while ringing
 
-        if (_settings.StopAlertEnabled || _settings.NotificationAlertEnabled)
+        if (_settings.StopAlertEnabled || _settings.NotificationAlertEnabled || _settings.NudgeEnabled)
         {
             _state = AppState.Enabled;
             ApplyVisualState(AppState.Enabled);
@@ -606,32 +622,86 @@ public partial class MainWindow : Window
 
     #endregion
 
-    #region Bubble
+    #region Nudge
 
-    private void ShowBubble()
+    private void ShowNudge()
     {
-        if (!_settings.BubbleEnabled)
+        if (!_settings.NudgeEnabled)
+            return;
+
+        // 冷却到期模式下，忽略 HTTP 触发的碎碎念（由定时器驱动）
+        if (_settings.NudgeTriggerMode == 1)
             return;
 
         // 日志气泡显示时不显示碎碎念
-        if (_notificationBubbleWindow is { IsVisible: true })
+        if (_notificationNudgeWindow is { IsVisible: true })
             return;
 
-        if (_settings.BubbleCooldownMinutes > 0 &&
-            (DateTime.Now - _lastBubbleTime).TotalMinutes < _settings.BubbleCooldownMinutes)
+        if (_settings.NudgeCooldownMinutes > 0 &&
+            (DateTime.Now - _lastNudgeTime).TotalMinutes < _settings.NudgeCooldownMinutes)
             return;
 
-        var messages = _settings.CustomBubbleMessages is { Count: > 0 }
-            ? _settings.CustomBubbleMessages
-            : DefaultBubbleMessages.ToList();
+        ShowNudgeCore();
+    }
 
-        var message = messages[_bubbleRandom.Next(messages.Count)];
+    private void ShowNudgeAuto()
+    {
+        if (!_settings.NudgeEnabled)
+            return;
 
-        _bubbleWindow?.Close();
-        _sound.PlayBubble(_settings.Volume);
-        _bubbleWindow = new BubbleWindow(message);
-        _bubbleWindow.ShowNear(this);
-        _lastBubbleTime = DateTime.Now;
+        if (_notificationNudgeWindow is { IsVisible: true })
+            return;
+
+        ShowNudgeCore();
+    }
+
+    private void ShowNudgeCore()
+    {
+        var messages = _settings.CustomNudgeMessages is { Count: > 0 }
+            ? _settings.CustomNudgeMessages
+            : DefaultNudgeMessages.ToList();
+
+        var message = PickNudgeMessage(messages);
+
+        _nudgeWindow?.Close();
+        _sound.PlayNudge(_settings.Volume);
+        _nudgeWindow = new NudgeWindow(message, _settings.NudgeStaySeconds);
+        _nudgeWindow.ShowNear(this);
+        _lastNudgeTime = DateTime.Now;
+    }
+
+    private string PickNudgeMessage(List<string> messages)
+    {
+        if (messages.Count == 0) return "";
+
+        if (_settings.NudgeOrderMode == 1)
+        {
+            if (_nudgeMessageIndex >= messages.Count)
+                _nudgeMessageIndex = 0;
+            return messages[_nudgeMessageIndex++];
+        }
+
+        return messages[_nudgeRandom.Next(messages.Count)];
+    }
+
+    private void UpdateNudgeTimer()
+    {
+        _nudgeCooldownTimer?.Stop();
+        _nudgeCooldownTimer = null;
+
+        if (_settings.NudgeTriggerMode != 1)
+            return;
+        if (_settings.NudgeCooldownMinutes <= 0)
+            return;
+        if (!_settings.NudgeEnabled)
+            return;
+
+        _nudgeCooldownTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(_settings.NudgeCooldownMinutes)
+        };
+        _nudgeCooldownTimer.Tick += (_, _) => ShowNudgeAuto();
+        _nudgeCooldownTimer.Start();
     }
 
     #endregion
@@ -643,29 +713,29 @@ public partial class MainWindow : Window
         if (!_settings.ProjectBubbleEnabled || string.IsNullOrWhiteSpace(cwd))
             return;
 
-        // 日志气泡出现时关闭碎碎念气泡
-        _bubbleWindow?.Close();
+        // 日志气泡出现时关闭碎碎念
+        _nudgeWindow?.Close();
 
         var projectName = Path.GetFileName(cwd.TrimEnd('/', '\\'));
         if (string.IsNullOrEmpty(projectName))
             projectName = cwd;
 
         var message = type == AlertType.Stop
-            ? $"{projectName} 回复完毕"
-            : $"{projectName} 发送通知";
+            ? L.Get("ProjectBubble_StopFormat", projectName)
+            : L.Get("ProjectBubble_NotifyFormat", projectName);
 
-        if (_notificationBubbleWindow is { IsVisible: true })
+        if (_notificationNudgeWindow is { IsVisible: true })
         {
-            _notificationBubbleWindow.AddMessage(message);
+            _notificationNudgeWindow.AddMessage(message);
         }
         else
         {
-            _notificationBubbleWindow?.Close();
-            _notificationBubbleWindow = new NotificationBubbleWindow();
-            _notificationBubbleWindow.AddMessage(message);
-            _notificationBubbleWindow.ShowNear(this);
-            _notificationBubbleWindow.StartActivityWatch();
-            _notificationBubbleWindow.Closed += (_, _) => _notificationBubbleWindow = null;
+            _notificationNudgeWindow?.Close();
+            _notificationNudgeWindow = new NotificationBubbleWindow();
+            _notificationNudgeWindow.AddMessage(message);
+            _notificationNudgeWindow.ShowNear(this);
+            _notificationNudgeWindow.StartActivityWatch();
+            _notificationNudgeWindow.Closed += (_, _) => _notificationNudgeWindow = null;
         }
     }
 
@@ -701,7 +771,7 @@ public partial class MainWindow : Window
     {
         _mouseDownPos = e.GetPosition(this);
         _isDragging = false;
-        _bubbleWindow?.Close();
+        _nudgeWindow?.Close();
     }
 
     private void Window_MouseMove(object sender, MouseEventArgs e)
@@ -734,17 +804,19 @@ public partial class MainWindow : Window
 
     private void ContextMenu_Opened(object sender, RoutedEventArgs e)
     {
-        _bubbleWindow?.Close();
-        _notificationBubbleWindow?.SuppressTopmost(true);
+        _nudgeWindow?.Close();
+        _notificationNudgeWindow?.SuppressTopmost(true);
 
         MenuShortMode.IsChecked = _settings.ShortMode;
+        MenuAlertTimeout.Visibility = _settings.ShortMode ? Visibility.Collapsed : Visibility.Visible;
         MenuProjectBubble.IsChecked = _settings.ProjectBubbleEnabled;
         MenuAutoStart.IsChecked = AutoStartManager.IsEnabled;
         MenuBindClaude.IsChecked = HookManager.IsClaudeCodeBound();
 
         BuildAlertToggleMenu();
-        BuildBubbleMenu();
+        BuildNudgeMenu();
         BuildAlertTimeoutMenu();
+        BuildLanguageMenu();
 
         // When menu closes, restore saved sound if preview wasn't confirmed
         if (sender is ContextMenu cm)
@@ -756,8 +828,8 @@ public partial class MainWindow : Window
 
     private void ContextMenu_Closed(object sender, RoutedEventArgs e)
     {
-        _bubbleWindow?.SuppressTopmost(false);
-        _notificationBubbleWindow?.SuppressTopmost(false);
+        _nudgeWindow?.SuppressTopmost(false);
+        _notificationNudgeWindow?.SuppressTopmost(false);
         _sound.Stop();
     }
 
@@ -765,31 +837,39 @@ public partial class MainWindow : Window
     {
         MenuToggleAlert.Items.Clear();
 
-        // AI发送通知时提醒
         var notifItem = new MenuItem
         {
-            Header = "AI 发送通知时提醒",
+            Header = L.Get("Menu_AlertNotification"),
             IsCheckable = true,
             IsChecked = _settings.NotificationAlertEnabled,
             Style = (Style)FindResource("LightMenuItem"),
             StaysOpenOnClick = true,
         };
+        var isAllClosed = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
+
+        var closeAllItem = new MenuItem
+        {
+            Header = L.Get("Menu_CloseAll"),
+            IsCheckable = true,
+            IsChecked = isAllClosed,
+            Style = (Style)FindResource("LightMenuItem"),
+            StaysOpenOnClick = true,
+        };
+
         notifItem.Click += (_, _) =>
         {
             _settings.NotificationAlertEnabled = notifItem.IsChecked;
             if (notifItem.IsChecked)
-            {
                 _lastNotificationEnabled = true;
-            }
+            closeAllItem.IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
             SaveSettings();
             RecalculateEnabledState();
         };
         MenuToggleAlert.Items.Add(notifItem);
 
-        // AI回应完毕时提醒
         var stopItem = new MenuItem
         {
-            Header = "AI 回应完毕时提醒",
+            Header = L.Get("Menu_AlertStop"),
             IsCheckable = true,
             IsChecked = _settings.StopAlertEnabled,
             Style = (Style)FindResource("LightMenuItem"),
@@ -799,42 +879,71 @@ public partial class MainWindow : Window
         {
             _settings.StopAlertEnabled = stopItem.IsChecked;
             if (stopItem.IsChecked)
-            {
                 _lastStopEnabled = true;
-            }
+            closeAllItem.IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
             SaveSettings();
             RecalculateEnabledState();
         };
         MenuToggleAlert.Items.Add(stopItem);
 
-        MenuToggleAlert.Items.Add(new Separator { Style = (Style)FindResource("LightSeparator") });
-
-        // 全部关闭
-        var closeAllItem = new MenuItem
+        var nudgeItem = new MenuItem
         {
-            Header = "全部关闭",
+            Header = L.Get("Menu_EnableNudge"),
             IsCheckable = true,
-            IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled,
+            IsChecked = _settings.NudgeEnabled,
             Style = (Style)FindResource("LightMenuItem"),
             StaysOpenOnClick = true,
         };
+        nudgeItem.Click += (_, _) =>
+        {
+            _settings.NudgeEnabled = nudgeItem.IsChecked;
+            if (nudgeItem.IsChecked)
+                _lastNudgeEnabled = true;
+            closeAllItem.IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
+            SaveSettings();
+            UpdateNudgeTimer();
+            RecalculateEnabledState();
+        };
+        MenuToggleAlert.Items.Add(nudgeItem);
+
+        MenuToggleAlert.Items.Add(new Separator { Style = (Style)FindResource("LightSeparator") });
+
         closeAllItem.Click += (_, _) =>
         {
-            // Save current state before closing
-            if (_settings.StopAlertEnabled || _settings.NotificationAlertEnabled)
+            if (_settings.StopAlertEnabled || _settings.NotificationAlertEnabled || _settings.NudgeEnabled)
             {
+                // Currently has something enabled → save & close all
                 _lastStopEnabled = _settings.StopAlertEnabled;
                 _lastNotificationEnabled = _settings.NotificationAlertEnabled;
+                _lastNudgeEnabled = _settings.NudgeEnabled;
+                _settings.StopAlertEnabled = false;
+                _settings.NotificationAlertEnabled = false;
+                _settings.NudgeEnabled = false;
+                notifItem.IsChecked = false;
+                stopItem.IsChecked = false;
+                nudgeItem.IsChecked = false;
+                closeAllItem.IsChecked = true;
             }
-            _settings.StopAlertEnabled = false;
-            _settings.NotificationAlertEnabled = false;
+            else
+            {
+                // Already all closed → restore previous state
+                if (!_lastStopEnabled && !_lastNotificationEnabled && !_lastNudgeEnabled)
+                {
+                    _lastStopEnabled = true;
+                    _lastNotificationEnabled = true;
+                    _lastNudgeEnabled = true;
+                }
+                _settings.StopAlertEnabled = _lastStopEnabled;
+                _settings.NotificationAlertEnabled = _lastNotificationEnabled;
+                _settings.NudgeEnabled = _lastNudgeEnabled;
+                notifItem.IsChecked = _settings.NotificationAlertEnabled;
+                stopItem.IsChecked = _settings.StopAlertEnabled;
+                nudgeItem.IsChecked = _settings.NudgeEnabled;
+                closeAllItem.IsChecked = false;
+            }
             SaveSettings();
             RecalculateEnabledState();
-
-            // Update checkmarks in the menu
-            notifItem.IsChecked = false;
-            stopItem.IsChecked = false;
-            closeAllItem.IsChecked = true;
+            UpdateNudgeTimer();
         };
         MenuToggleAlert.Items.Add(closeAllItem);
     }
@@ -851,38 +960,79 @@ public partial class MainWindow : Window
             _settings.StopCustomSoundPath = dlg.ResultStopCustomPath;
             _settings.NotificationSoundId = dlg.ResultNotificationSoundId;
             _settings.NotificationCustomSoundPath = dlg.ResultNotificationCustomPath;
+            SaveSettings();
+        }
+        _sound.Volume = _settings.Volume;
+        _sound.Stop();
+    }
+
+    private void MenuVolume_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new VolumeWindow(_settings, _sound) { Owner = this };
+        if (dlg.ShowDialog() == true)
+        {
             _settings.Volume = dlg.ResultVolume;
             _settings.GradualVolume = dlg.ResultGradualVolume;
             _sound.Volume = _settings.Volume;
             SaveSettings();
         }
-        // Stop any preview sound when dialog closes
         _sound.Stop();
     }
 
-    private void BuildBubbleMenu()
+    private void BuildNudgeMenu()
     {
-        MenuBubble.Items.Clear();
+        MenuNudge.Items.Clear();
 
-        // Enable/disable toggle
-        var toggleItem = new MenuItem
+        // Stay duration submenu
+        var stayItem = new MenuItem
         {
-            Header = "启用碎碎念",
-            IsCheckable = true,
-            IsChecked = _settings.BubbleEnabled,
-            Style = (Style)FindResource("LightMenuItem"),
+            Header = L.Get("Menu_NudgeStay"),
+            Style = (Style)FindResource("LightSubmenuItem"),
         };
-        toggleItem.Click += (_, _) =>
+        stayItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
+
+        var stayOptions = new (string Label, int Seconds)[]
         {
-            _settings.BubbleEnabled = toggleItem.IsChecked;
-            SaveSettings();
+            (L.Get("Menu_SecondsFormat", 5), 5),
+            (L.Get("Menu_SecondsFormat", 10), 10),
+            (L.Get("Menu_SecondsFormat", 15), 15),
+            (L.Get("Menu_SecondsFormat", 20), 20),
         };
-        MenuBubble.Items.Add(toggleItem);
+
+        stayItem.SubmenuOpened += (_, _) =>
+        {
+            stayItem.Items.Clear();
+            foreach (var (label, seconds) in stayOptions)
+            {
+                var opt = new MenuItem
+                {
+                    Header = label,
+                    IsCheckable = true,
+                    IsChecked = _settings.NudgeStaySeconds == seconds,
+                    Style = (Style)FindResource("LightMenuItem"),
+                    StaysOpenOnClick = true,
+                };
+                var s = seconds;
+                opt.Click += (_, _) =>
+                {
+                    _settings.NudgeStaySeconds = s;
+                    SaveSettings();
+                    foreach (var child in stayItem.Items)
+                    {
+                        if (child is MenuItem mi)
+                            mi.IsChecked = false;
+                    }
+                    opt.IsChecked = true;
+                };
+                stayItem.Items.Add(opt);
+            }
+        };
+        MenuNudge.Items.Add(stayItem);
 
         // Cooldown submenu
         var cooldownItem = new MenuItem
         {
-            Header = "冷却时间",
+            Header = L.Get("Menu_Cooldown"),
             Style = (Style)FindResource("LightSubmenuItem"),
         };
         // Placeholder for submenu
@@ -890,11 +1040,15 @@ public partial class MainWindow : Window
 
         var cooldownOptions = new (string Label, int Minutes)[]
         {
-            ("无冷却", 0),
-            ("5 分钟", 5),
-            ("10 分钟", 10),
-            ("15 分钟", 15),
-            ("30 分钟", 30),
+            (L.Get("Menu_NoCooldown"), 0),
+            (L.Get("Menu_MinutesFormat", 5), 5),
+            (L.Get("Menu_MinutesFormat", 10), 10),
+            (L.Get("Menu_MinutesFormat", 15), 15),
+            (L.Get("Menu_MinutesFormat", 20), 20),
+            (L.Get("Menu_MinutesFormat", 25), 25),
+            (L.Get("Menu_MinutesFormat", 30), 30),
+            (L.Get("Menu_MinutesFormat", 35), 35),
+            (L.Get("Menu_MinutesFormat", 40), 40),
         };
 
         cooldownItem.SubmenuOpened += (_, _) =>
@@ -906,15 +1060,16 @@ public partial class MainWindow : Window
                 {
                     Header = label,
                     IsCheckable = true,
-                    IsChecked = _settings.BubbleCooldownMinutes == minutes,
+                    IsChecked = _settings.NudgeCooldownMinutes == minutes,
                     Style = (Style)FindResource("LightMenuItem"),
                     StaysOpenOnClick = true,
                 };
                 var m = minutes;
                 opt.Click += (_, _) =>
                 {
-                    _settings.BubbleCooldownMinutes = m;
+                    _settings.NudgeCooldownMinutes = m;
                     SaveSettings();
+                    UpdateNudgeTimer();
                     // Update checkmarks
                     foreach (var child in cooldownItem.Items)
                     {
@@ -926,38 +1081,127 @@ public partial class MainWindow : Window
                 cooldownItem.Items.Add(opt);
             }
         };
-        MenuBubble.Items.Add(cooldownItem);
+        MenuNudge.Items.Add(cooldownItem);
 
-        MenuBubble.Items.Add(new Separator { Style = (Style)FindResource("LightSeparator") });
+        // Trigger timing submenu
+        var triggerItem = new MenuItem
+        {
+            Header = L.Get("Menu_TriggerTiming"),
+            Style = (Style)FindResource("LightSubmenuItem"),
+        };
+        triggerItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
+
+        var triggerOptions = new (string Label, int Mode)[]
+        {
+            (L.Get("Menu_TriggerOnRequest"), 0),
+            (L.Get("Menu_TriggerOnCooldown"), 1),
+        };
+
+        triggerItem.SubmenuOpened += (_, _) =>
+        {
+            triggerItem.Items.Clear();
+            foreach (var (label, mode) in triggerOptions)
+            {
+                var opt = new MenuItem
+                {
+                    Header = label,
+                    IsCheckable = true,
+                    IsChecked = _settings.NudgeTriggerMode == mode,
+                    Style = (Style)FindResource("LightMenuItem"),
+                    StaysOpenOnClick = true,
+                };
+                var m = mode;
+                opt.Click += (_, _) =>
+                {
+                    _settings.NudgeTriggerMode = m;
+                    SaveSettings();
+                    UpdateNudgeTimer();
+                    foreach (var child in triggerItem.Items)
+                    {
+                        if (child is MenuItem mi) mi.IsChecked = false;
+                    }
+                    opt.IsChecked = true;
+                };
+                triggerItem.Items.Add(opt);
+            }
+        };
+        MenuNudge.Items.Add(triggerItem);
+
+        // Message order submenu
+        var orderItem = new MenuItem
+        {
+            Header = L.Get("Menu_MessageOrder"),
+            Style = (Style)FindResource("LightSubmenuItem"),
+        };
+        orderItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
+
+        var orderOptions = new (string Label, int Mode)[]
+        {
+            (L.Get("Menu_OrderRandom"), 0),
+            (L.Get("Menu_OrderSequential"), 1),
+        };
+
+        orderItem.SubmenuOpened += (_, _) =>
+        {
+            orderItem.Items.Clear();
+            foreach (var (label, mode) in orderOptions)
+            {
+                var opt = new MenuItem
+                {
+                    Header = label,
+                    IsCheckable = true,
+                    IsChecked = _settings.NudgeOrderMode == mode,
+                    Style = (Style)FindResource("LightMenuItem"),
+                    StaysOpenOnClick = true,
+                };
+                var m = mode;
+                opt.Click += (_, _) =>
+                {
+                    _settings.NudgeOrderMode = m;
+                    if (m == 0) _nudgeMessageIndex = 0;
+                    SaveSettings();
+                    foreach (var child in orderItem.Items)
+                    {
+                        if (child is MenuItem mi) mi.IsChecked = false;
+                    }
+                    opt.IsChecked = true;
+                };
+                orderItem.Items.Add(opt);
+            }
+        };
+        MenuNudge.Items.Add(orderItem);
+
+        MenuNudge.Items.Add(new Separator { Style = (Style)FindResource("LightSeparator") });
 
         // Edit messages
         var editItem = new MenuItem
         {
-            Header = "编辑碎碎念内容…",
+            Header = L.Get("Menu_EditNudgeContent"),
             Style = (Style)FindResource("LightMenuItem"),
         };
         editItem.Click += (_, _) =>
         {
-            var messages = _settings.CustomBubbleMessages is { Count: > 0 }
-                ? _settings.CustomBubbleMessages
-                : DefaultBubbleMessages.ToList();
+            var messages = _settings.CustomNudgeMessages is { Count: > 0 }
+                ? _settings.CustomNudgeMessages
+                : DefaultNudgeMessages.ToList();
 
-            var editor = new MessageEditorWindow(messages, DefaultBubbleMessages)
+            var editor = new MessageEditorWindow(messages, DefaultNudgeMessages)
             {
                 Owner = this,
             };
             if (editor.ShowDialog() == true)
             {
-                _settings.CustomBubbleMessages = editor.ResultMessages;
+                _settings.CustomNudgeMessages = editor.ResultMessages;
                 SaveSettings();
             }
         };
-        MenuBubble.Items.Add(editItem);
+        MenuNudge.Items.Add(editItem);
     }
 
     private void MenuShortMode_Click(object sender, RoutedEventArgs e)
     {
         _settings.ShortMode = MenuShortMode.IsChecked;
+        MenuAlertTimeout.Visibility = _settings.ShortMode ? Visibility.Collapsed : Visibility.Visible;
         SaveSettings();
     }
 
@@ -973,10 +1217,10 @@ public partial class MainWindow : Window
 
         var options = new (string Label, int Seconds)[]
         {
-            ("15 秒", 15),
-            ("30 秒", 30),
-            ("45 秒", 45),
-            ("60 秒", 60),
+            (L.Get("Menu_SecondsFormat", 15), 15),
+            (L.Get("Menu_SecondsFormat", 30), 30),
+            (L.Get("Menu_SecondsFormat", 45), 45),
+            (L.Get("Menu_SecondsFormat", 60), 60),
         };
 
         foreach (var (label, seconds) in options)
@@ -1042,6 +1286,62 @@ public partial class MainWindow : Window
         Application.Current.Shutdown();
     }
 
+    private void BuildLanguageMenu()
+    {
+        MenuLanguage.Items.Clear();
+
+        var zhItem = new MenuItem
+        {
+            Header = "中文",
+            IsCheckable = true,
+            IsChecked = L.IsChinese,
+            Style = (Style)FindResource("LightMenuItem"),
+        };
+        zhItem.Click += (_, _) => SwitchLanguage("zh-CN");
+        MenuLanguage.Items.Add(zhItem);
+
+        var enItem = new MenuItem
+        {
+            Header = "English",
+            IsCheckable = true,
+            IsChecked = !L.IsChinese,
+            Style = (Style)FindResource("LightMenuItem"),
+        };
+        enItem.Click += (_, _) => SwitchLanguage("en");
+        MenuLanguage.Items.Add(enItem);
+    }
+
+    private void SwitchLanguage(string cultureCode)
+    {
+        L.SwitchLanguage(cultureCode);
+        _settings.Language = cultureCode;
+        SaveSettings();
+        RefreshStaticUI();
+    }
+
+    private void RefreshStaticUI()
+    {
+        // Update XAML-defined menu headers
+        MenuToggleAlert.Header = L.Get("Menu_AlertToggle");
+        MenuProjectBubble.Header = L.Get("Menu_NotificationLog");
+        MenuSoundSettings.Header = L.Get("Menu_SoundSettings");
+        MenuVolume.Header = L.Get("Menu_Volume");
+        MenuShortMode.Header = L.Get("Menu_ShortMode");
+        MenuAlertTimeout.Header = L.Get("Menu_LongAlertDuration");
+        MenuNudge.Header = L.Get("Menu_Nudge");
+        MenuBindClaude.Header = L.Get("Menu_BindClaude");
+        MenuAutoStart.Header = L.Get("Menu_AutoStart");
+        MenuLanguage.Header = L.Get("Menu_Language");
+        MenuExit.Header = L.Get("Menu_Exit");
+
+        // Update tooltip and tray
+        ApplyVisualState(_state);
+
+        // Update tray menu items
+        if (_trayShowItem != null) _trayShowItem.Text = L.Get("Tray_ShowBall");
+        if (_trayExitItem != null) _trayExitItem.Text = L.Get("Tray_Exit");
+    }
+
     #endregion
 
     private void SaveSettings()
@@ -1058,8 +1358,8 @@ public partial class MainWindow : Window
             _trayIcon = null;
         }
 
-        _bubbleWindow?.Close();
-        _notificationBubbleWindow?.Close();
+        _nudgeWindow?.Close();
+        _notificationNudgeWindow?.Close();
         _server.Dispose();
         _sound.Dispose();
         _activityDetector.Stop();

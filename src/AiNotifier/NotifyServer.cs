@@ -12,13 +12,13 @@ public class NotifyServer : IDisposable
     private CancellationTokenSource? _cts;
     private readonly Func<string> _statusProvider;
 
-    // 跟踪已 stop 但未新提交 prompt 的 session，用于抑制重复 notify
-    private readonly HashSet<string> _stoppedSessions = new();
-    private readonly object _stoppedLock = new();
+    // 跟踪每个 session 的最后信号类型，用于抑制 stop→notify 和连续相同信号
+    private readonly Dictionary<string, string> _lastSignal = new();
+    private readonly object _signalLock = new();
 
-    public event Action<string?>? NotifyRequested;
-    public event Action<string?>? StopRequested;
-    public event Action? BubbleRequested;
+    public event Action<string?, bool>? NotifyRequested;   // (cwd, isDuplicate)
+    public event Action<string?, bool>? StopRequested;     // (cwd, isDuplicate)
+    public event Action? NudgeRequested;
 
     public NotifyServer(Func<string> statusProvider)
     {
@@ -108,46 +108,56 @@ public class NotifyServer : IDisposable
         switch (path)
         {
             case "/notify":
-                // 如果该 session 已经 stop 且没有新的 UserPromptSubmit，则抑制 notify
-                bool suppressed;
-                lock (_stoppedLock)
+                // 如果该 session 已经 stop 且没有新的 UserPromptSubmit，则全面抑制 notify
+                bool fullSuppressed = false;
+                bool notifyDup = false;
+                lock (_signalLock)
                 {
-                    suppressed = sid != "" && _stoppedSessions.Contains(sid);
+                    if (sid != "" && _lastSignal.TryGetValue(sid, out var lastNotify))
+                    {
+                        if (lastNotify == "stop")
+                            fullSuppressed = true;
+                        else if (lastNotify == "notify")
+                            notifyDup = true;
+                    }
+                    if (!fullSuppressed && sid != "")
+                        _lastSignal[sid] = "notify";
                 }
-                if (suppressed)
+                if (fullSuppressed)
                 {
                     responseText = "OK (suppressed: already stopped)";
                 }
                 else
                 {
-                    responseText = "OK";
-                    Application.Current.Dispatcher.BeginInvoke(() => NotifyRequested?.Invoke(cwd));
+                    responseText = notifyDup ? "OK (duplicate)" : "OK";
+                    Application.Current.Dispatcher.BeginInvoke(() => NotifyRequested?.Invoke(cwd, notifyDup));
                 }
                 break;
 
             case "/stop":
-                responseText = "OK";
-                if (sid != "")
+                bool stopDup = false;
+                lock (_signalLock)
                 {
-                    lock (_stoppedLock)
-                    {
-                        _stoppedSessions.Add(sid);
-                    }
+                    if (sid != "" && _lastSignal.TryGetValue(sid, out var lastStop) && lastStop == "stop")
+                        stopDup = true;
+                    if (sid != "")
+                        _lastSignal[sid] = "stop";
                 }
-                Application.Current.Dispatcher.BeginInvoke(() => StopRequested?.Invoke(cwd));
+                responseText = stopDup ? "OK (duplicate)" : "OK";
+                Application.Current.Dispatcher.BeginInvoke(() => StopRequested?.Invoke(cwd, stopDup));
                 break;
 
-            case "/bubble":
+            case "/start":
                 responseText = "OK";
-                // 新的 UserPromptSubmit 到达，清除该 session 的 stop 标记
+                // 新的 UserPromptSubmit 到达，清除该 session 的信号记录
                 if (sid != "")
                 {
-                    lock (_stoppedLock)
+                    lock (_signalLock)
                     {
-                        _stoppedSessions.Remove(sid);
+                        _lastSignal.Remove(sid);
                     }
                 }
-                Application.Current.Dispatcher.BeginInvoke(() => BubbleRequested?.Invoke());
+                Application.Current.Dispatcher.BeginInvoke(() => NudgeRequested?.Invoke());
                 break;
 
             case "/status":

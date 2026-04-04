@@ -4,26 +4,26 @@ using System.Windows.Threading;
 
 namespace AiNotifier;
 
-public partial class BubbleWindow : Window
+public partial class NudgeWindow : Window
 {
     private readonly DispatcherTimer _stayTimer;
     private readonly DispatcherTimer _topTimer;
     private Window? _owner;
     private bool _suppressTop;
 
-    public BubbleWindow(string message)
+    public NudgeWindow(string message, int staySeconds = 10)
     {
         InitializeComponent();
         MessageText.Text = message;
 
-        _stayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _stayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(Math.Clamp(staySeconds, 5, 20)) };
         _stayTimer.Tick += (_, _) =>
         {
             _stayTimer.Stop();
             FadeOut();
         };
 
-        // Periodically re-assert Z-order so bubble stays above the ball
+        // Periodically re-assert Z-order so nudge stays above the ball
         _topTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _topTimer.Tick += (_, _) =>
         {

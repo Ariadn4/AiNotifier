@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="0" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute name="xml:space" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Context Menu -->
+  <data name="Menu_AlertToggle" xml:space="preserve"><value>开启提醒</value></data>
+  <data name="Menu_NotificationLog" xml:space="preserve"><value>提醒日志</value></data>
+  <data name="Menu_SoundSettings" xml:space="preserve"><value>提示音效</value></data>
+  <data name="Menu_Volume" xml:space="preserve"><value>音量</value></data>
+  <data name="Menu_ShortMode" xml:space="preserve"><value>短提醒模式</value></data>
+  <data name="Menu_LongAlertDuration" xml:space="preserve"><value>长提醒时长</value></data>
+  <data name="Menu_Nudge" xml:space="preserve"><value>碎碎念</value></data>
+  <data name="Menu_BindClaude" xml:space="preserve"><value>绑定 Claude Code</value></data>
+  <data name="Menu_AutoStart" xml:space="preserve"><value>开机自启动</value></data>
+  <data name="Menu_Language" xml:space="preserve"><value>语言</value></data>
+  <data name="Menu_Exit" xml:space="preserve"><value>退出</value></data>
+
+  <!-- Alert Toggle Submenu -->
+  <data name="Menu_AlertNotification" xml:space="preserve"><value>AI 发送通知时提醒</value></data>
+  <data name="Menu_AlertStop" xml:space="preserve"><value>AI 回应完毕时提醒</value></data>
+  <data name="Menu_CloseAll" xml:space="preserve"><value>全部关闭</value></data>
+
+  <!-- Nudge Submenu -->
+  <data name="Menu_EnableNudge" xml:space="preserve"><value>启用碎碎念</value></data>
+  <data name="Menu_NudgeStay" xml:space="preserve"><value>停留时长</value></data>
+  <data name="Menu_Cooldown" xml:space="preserve"><value>冷却时间</value></data>
+  <data name="Menu_NoCooldown" xml:space="preserve"><value>无冷却</value></data>
+  <data name="Menu_MinutesFormat" xml:space="preserve"><value>{0} 分钟</value></data>
+  <data name="Menu_EditNudgeContent" xml:space="preserve"><value>编辑碎碎念内容…</value></data>
+  <data name="Menu_TriggerTiming" xml:space="preserve"><value>触发时机</value></data>
+  <data name="Menu_TriggerOnRequest" xml:space="preserve"><value>AI思考时</value></data>
+  <data name="Menu_TriggerOnCooldown" xml:space="preserve"><value>冷却到期时</value></data>
+  <data name="Menu_MessageOrder" xml:space="preserve"><value>消息顺序</value></data>
+  <data name="Menu_OrderRandom" xml:space="preserve"><value>随机</value></data>
+  <data name="Menu_OrderSequential" xml:space="preserve"><value>顺序</value></data>
+
+  <!-- Alert Timeout -->
+  <data name="Menu_SecondsFormat" xml:space="preserve"><value>{0} 秒</value></data>
+
+  <!-- Tray Icon -->
+  <data name="Tray_Listening" xml:space="preserve"><value>AI Ping - 监听中</value></data>
+  <data name="Tray_Disabled" xml:space="preserve"><value>AI Ping - 已关闭</value></data>
+  <data name="Tray_StopAlert" xml:space="preserve"><value>AI Ping - 回应完毕提醒中</value></data>
+  <data name="Tray_NotificationAlert" xml:space="preserve"><value>AI Ping - 通知提醒中</value></data>
+  <data name="Tray_ShowBall" xml:space="preserve"><value>显示悬浮球</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>退出</value></data>
+
+  <!-- Tooltip -->
+  <data name="Tooltip_Listening" xml:space="preserve"><value>监听中</value></data>
+  <data name="Tooltip_StopAlert" xml:space="preserve"><value>回应完毕提醒中</value></data>
+  <data name="Tooltip_NotificationAlert" xml:space="preserve"><value>通知提醒中</value></data>
+  <data name="Tooltip_Disabled" xml:space="preserve"><value>已关闭</value></data>
+
+  <!-- Project Bubble -->
+  <data name="ProjectBubble_StopFormat" xml:space="preserve"><value>{0} 回复完毕</value></data>
+  <data name="ProjectBubble_NotifyFormat" xml:space="preserve"><value>{0} 发送通知</value></data>
+
+  <!-- Default Nudge Messages -->
+  <data name="DefaultNudge_DrinkWater" xml:space="preserve"><value>喝杯水吧</value></data>
+  <data name="DefaultNudge_TakeWalk" xml:space="preserve"><value>站起来走走</value></data>
+  <data name="DefaultNudge_LookAway" xml:space="preserve"><value>眺望远处20秒</value></data>
+
+  <!-- Error Messages -->
+  <data name="Error_Fatal" xml:space="preserve"><value>发生致命错误：
+{0}
+
+{1}</value></data>
+  <data name="Error_General" xml:space="preserve"><value>发生错误：
+{0}
+
+{1}</value></data>
+  <data name="Error_Title" xml:space="preserve"><value>AI Notifier 错误</value></data>
+  <data name="Error_AlreadyRunning" xml:space="preserve"><value>AI Notifier 已在运行。</value></data>
+  <data name="Error_StartupFailed" xml:space="preserve"><value>启动失败：
+{0}
+
+{1}</value></data>
+  <data name="Error_HttpServer" xml:space="preserve"><value>无法启动 HTTP 服务：{0}
+请检查端口 19836 是否被占用。</value></data>
+  <data name="Error_ClaudeConfig" xml:space="preserve"><value>无法写入 Claude Code 配置：{0}</value></data>
+
+  <!-- Sound Settings -->
+  <data name="Sound_WindowTitle" xml:space="preserve"><value>提示音效设置</value></data>
+  <data name="Sound_StopSection" xml:space="preserve"><value>回应完毕提示音</value></data>
+  <data name="Sound_NotifSection" xml:space="preserve"><value>通知提示音</value></data>
+  <data name="Sound_Preview" xml:space="preserve"><value>试听</value></data>
+  <data name="Sound_Custom" xml:space="preserve"><value>自定义…</value></data>
+  <data name="Sound_Volume" xml:space="preserve"><value>音量</value></data>
+  <data name="Sound_GradualVolume" xml:space="preserve"><value>渐强音量（仅长提醒有效）</value></data>
+  <data name="Sound_Alert1" xml:space="preserve"><value>提示音 1</value></data>
+  <data name="Sound_Alert2" xml:space="preserve"><value>提示音 2</value></data>
+  <data name="Sound_Alert3" xml:space="preserve"><value>提示音 3</value></data>
+  <data name="Sound_Alert4" xml:space="preserve"><value>提示音 4</value></data>
+  <data name="Sound_FileDialogTitle" xml:space="preserve"><value>选择提示音效文件</value></data>
+  <data name="Sound_FileFilter" xml:space="preserve"><value>音频文件|*.wav;*.mp3;*.wma;*.aac|所有文件|*.*</value></data>
+  <data name="Sound_CustomLabel" xml:space="preserve"><value>自定义</value></data>
+
+  <!-- Message Editor -->
+  <data name="MessageEditor_Title" xml:space="preserve"><value>编辑提醒消息</value></data>
+  <data name="MessageEditor_Instruction" xml:space="preserve"><value>每行一条提醒消息：</value></data>
+
+  <!-- Common Buttons -->
+  <data name="Dialog_OK" xml:space="preserve"><value>确定</value></data>
+  <data name="Dialog_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Dialog_Reset" xml:space="preserve"><value>恢复默认</value></data>
+</root>

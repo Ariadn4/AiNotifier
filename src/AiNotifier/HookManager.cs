@@ -17,7 +17,7 @@ public static class HookManager
     private const string StopCommandWithCwd = SidExtract + " && curl -s -G \"http://localhost:19836/stop\" --data-urlencode \"cwd=$CLAUDE_PROJECT_DIR\" --data-urlencode \"sid=$SID\"";
     private const string NotifyCommand = SidExtract + " && curl -s -G \"http://localhost:19836/notify\" --data-urlencode \"sid=$SID\"";
     private const string NotifyCommandWithCwd = SidExtract + " && curl -s -G \"http://localhost:19836/notify\" --data-urlencode \"cwd=$CLAUDE_PROJECT_DIR\" --data-urlencode \"sid=$SID\"";
-    private const string BubbleCommand = SidExtract + " && curl -s -G \"http://localhost:19836/bubble\" --data-urlencode \"sid=$SID\"";
+    private const string NudgeCommand = SidExtract + " && curl -s -G \"http://localhost:19836/start\" --data-urlencode \"sid=$SID\"";
     private const string NotifyUrl = "localhost:19836";
 
     private static string UserHome =>
@@ -96,24 +96,24 @@ public static class HookManager
                     notifArray.Add(notificationEntry);
             }
 
-            // Add UserPromptSubmit hook for bubble
-            var bubbleEntry = CreateHookEntry(BubbleCommand);
+            // Add UserPromptSubmit hook for nudge
+            var nudgeEntry = CreateHookEntry(NudgeCommand);
             if (hooks["UserPromptSubmit"] == null)
             {
-                hooks["UserPromptSubmit"] = new JsonArray { bubbleEntry };
+                hooks["UserPromptSubmit"] = new JsonArray { nudgeEntry };
             }
             else
             {
                 var preToolArray = hooks["UserPromptSubmit"]!.AsArray();
                 if (!HasNotifyHook(preToolArray))
-                    preToolArray.Add(bubbleEntry);
+                    preToolArray.Add(nudgeEntry);
             }
 
             File.WriteAllText(path, root.ToJsonString(JsonOptions));
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"无法写入 Claude Code 配置：{ex.Message}", ex);
+            throw new InvalidOperationException(LocalizationService.Instance.Get("Error_ClaudeConfig", ex.Message), ex);
         }
     }
 

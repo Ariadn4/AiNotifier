@@ -68,7 +68,7 @@ publish/
 The app has five core modules, all under `src/AiNotifier/`:
 
 - **MainWindow** — WPF borderless topmost window. A draggable robot ball that changes color by state (blue=on, gray=off, amber=stop-ringing, purple=notification-ringing). Left-click toggles alerts; right-click opens context menu.
-- **NotifyServer** — Background `HttpListener` on port 19836. `GET /stop` triggers stop alert; `GET /notify` triggers notification alert; `GET /bubble` triggers bubble; `GET /status` returns state.
+- **NotifyServer** — Background `HttpListener` on port 19836. `GET /stop` triggers stop alert; `GET /notify` triggers notification alert; `GET /start` triggers nudge; `GET /status` returns state.
 - **SoundManager** — Wraps `MediaPlayer` for alert sound playback (looping/once/preview).
 - **UserActivityDetector** — Polls `GetLastInputInfo` every second during ringing; stops alert when new user input is detected.
 - **AutoStartManager** — Reads/writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` registry key for startup toggle.

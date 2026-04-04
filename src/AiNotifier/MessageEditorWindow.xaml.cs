@@ -4,6 +4,7 @@ namespace AiNotifier;
 
 public partial class MessageEditorWindow : Window
 {
+    private static LocalizationService L => LocalizationService.Instance;
     private readonly string[] _defaultMessages;
     public List<string>? ResultMessages { get; private set; }
 
@@ -11,6 +12,14 @@ public partial class MessageEditorWindow : Window
     {
         _defaultMessages = defaultMessages;
         InitializeComponent();
+
+        // Apply localized text
+        Title = L.Get("MessageEditor_Title");
+        InstructionLabel.Text = L.Get("MessageEditor_Instruction");
+        ResetBtn.Content = L.Get("Dialog_Reset");
+        CancelBtn.Content = L.Get("Dialog_Cancel");
+        OKBtn.Content = L.Get("Dialog_OK");
+
         MessagesBox.Text = string.Join(Environment.NewLine, messages);
     }
 

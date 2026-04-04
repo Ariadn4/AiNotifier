@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="0" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute name="xml:space" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Context Menu -->
+  <data name="Menu_AlertToggle" xml:space="preserve"><value>Alerts</value></data>
+  <data name="Menu_NotificationLog" xml:space="preserve"><value>Alert Log</value></data>
+  <data name="Menu_SoundSettings" xml:space="preserve"><value>Sound Settings</value></data>
+  <data name="Menu_Volume" xml:space="preserve"><value>Volume</value></data>
+  <data name="Menu_ShortMode" xml:space="preserve"><value>Short Alert Mode</value></data>
+  <data name="Menu_LongAlertDuration" xml:space="preserve"><value>Long Alert Duration</value></data>
+  <data name="Menu_Nudge" xml:space="preserve"><value>Nudge</value></data>
+  <data name="Menu_BindClaude" xml:space="preserve"><value>Bind Claude Code</value></data>
+  <data name="Menu_AutoStart" xml:space="preserve"><value>Start on Boot</value></data>
+  <data name="Menu_Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Menu_Exit" xml:space="preserve"><value>Exit</value></data>
+
+  <!-- Alert Toggle Submenu -->
+  <data name="Menu_AlertNotification" xml:space="preserve"><value>Alert on AI notification</value></data>
+  <data name="Menu_AlertStop" xml:space="preserve"><value>Alert on AI response complete</value></data>
+  <data name="Menu_CloseAll" xml:space="preserve"><value>Disable All</value></data>
+
+  <!-- Nudge Submenu -->
+  <data name="Menu_EnableNudge" xml:space="preserve"><value>Enable Nudge</value></data>
+  <data name="Menu_NudgeStay" xml:space="preserve"><value>Stay Duration</value></data>
+  <data name="Menu_Cooldown" xml:space="preserve"><value>Cooldown</value></data>
+  <data name="Menu_NoCooldown" xml:space="preserve"><value>No Cooldown</value></data>
+  <data name="Menu_MinutesFormat" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Menu_EditNudgeContent" xml:space="preserve"><value>Edit Nudge Messages...</value></data>
+  <data name="Menu_TriggerTiming" xml:space="preserve"><value>Trigger Timing</value></data>
+  <data name="Menu_TriggerOnRequest" xml:space="preserve"><value>On AI Thinking</value></data>
+  <data name="Menu_TriggerOnCooldown" xml:space="preserve"><value>On Cooldown Expiry</value></data>
+  <data name="Menu_MessageOrder" xml:space="preserve"><value>Message Order</value></data>
+  <data name="Menu_OrderRandom" xml:space="preserve"><value>Random</value></data>
+  <data name="Menu_OrderSequential" xml:space="preserve"><value>Sequential</value></data>
+
+  <!-- Alert Timeout -->
+  <data name="Menu_SecondsFormat" xml:space="preserve"><value>{0} sec</value></data>
+
+  <!-- Tray Icon -->
+  <data name="Tray_Listening" xml:space="preserve"><value>AI Ping - Listening</value></data>
+  <data name="Tray_Disabled" xml:space="preserve"><value>AI Ping - Disabled</value></data>
+  <data name="Tray_StopAlert" xml:space="preserve"><value>AI Ping - Response Alert</value></data>
+  <data name="Tray_NotificationAlert" xml:space="preserve"><value>AI Ping - Notification Alert</value></data>
+  <data name="Tray_ShowBall" xml:space="preserve"><value>Show Ball</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>Exit</value></data>
+
+  <!-- Tooltip -->
+  <data name="Tooltip_Listening" xml:space="preserve"><value>Listening</value></data>
+  <data name="Tooltip_StopAlert" xml:space="preserve"><value>Response Alert</value></data>
+  <data name="Tooltip_NotificationAlert" xml:space="preserve"><value>Notification Alert</value></data>
+  <data name="Tooltip_Disabled" xml:space="preserve"><value>Disabled</value></data>
+
+  <!-- Project Bubble -->
+  <data name="ProjectBubble_StopFormat" xml:space="preserve"><value>{0} finished</value></data>
+  <data name="ProjectBubble_NotifyFormat" xml:space="preserve"><value>{0} notification</value></data>
+
+  <!-- Default Nudge Messages -->
+  <data name="DefaultNudge_DrinkWater" xml:space="preserve"><value>Have a drink of water</value></data>
+  <data name="DefaultNudge_TakeWalk" xml:space="preserve"><value>Stand up and take a walk</value></data>
+  <data name="DefaultNudge_LookAway" xml:space="preserve"><value>Look away for 20 seconds</value></data>
+
+  <!-- Error Messages -->
+  <data name="Error_Fatal" xml:space="preserve"><value>Fatal error:
+{0}
+
+{1}</value></data>
+  <data name="Error_General" xml:space="preserve"><value>Error:
+{0}
+
+{1}</value></data>
+  <data name="Error_Title" xml:space="preserve"><value>AI Notifier Error</value></data>
+  <data name="Error_AlreadyRunning" xml:space="preserve"><value>AI Notifier is already running.</value></data>
+  <data name="Error_StartupFailed" xml:space="preserve"><value>Startup failed:
+{0}
+
+{1}</value></data>
+  <data name="Error_HttpServer" xml:space="preserve"><value>Failed to start HTTP server: {0}
+Please check if port 19836 is in use.</value></data>
+  <data name="Error_ClaudeConfig" xml:space="preserve"><value>Failed to write Claude Code config: {0}</value></data>
+
+  <!-- Sound Settings -->
+  <data name="Sound_WindowTitle" xml:space="preserve"><value>Sound Settings</value></data>
+  <data name="Sound_StopSection" xml:space="preserve"><value>Response Complete Sound</value></data>
+  <data name="Sound_NotifSection" xml:space="preserve"><value>Notification Sound</value></data>
+  <data name="Sound_Preview" xml:space="preserve"><value>Preview</value></data>
+  <data name="Sound_Custom" xml:space="preserve"><value>Custom...</value></data>
+  <data name="Sound_Volume" xml:space="preserve"><value>Volume</value></data>
+  <data name="Sound_GradualVolume" xml:space="preserve"><value>Gradual Volume (long alert only)</value></data>
+  <data name="Sound_Alert1" xml:space="preserve"><value>Alert Sound 1</value></data>
+  <data name="Sound_Alert2" xml:space="preserve"><value>Alert Sound 2</value></data>
+  <data name="Sound_Alert3" xml:space="preserve"><value>Alert Sound 3</value></data>
+  <data name="Sound_Alert4" xml:space="preserve"><value>Alert Sound 4</value></data>
+  <data name="Sound_FileDialogTitle" xml:space="preserve"><value>Select Sound File</value></data>
+  <data name="Sound_FileFilter" xml:space="preserve"><value>Audio Files|*.wav;*.mp3;*.wma;*.aac|All Files|*.*</value></data>
+  <data name="Sound_CustomLabel" xml:space="preserve"><value>Custom</value></data>
+
+  <!-- Message Editor -->
+  <data name="MessageEditor_Title" xml:space="preserve"><value>Edit Reminder Messages</value></data>
+  <data name="MessageEditor_Instruction" xml:space="preserve"><value>One message per line:</value></data>
+
+  <!-- Common Buttons -->
+  <data name="Dialog_OK" xml:space="preserve"><value>OK</value></data>
+  <data name="Dialog_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Dialog_Reset" xml:space="preserve"><value>Reset Default</value></data>
+</root>

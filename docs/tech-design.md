@@ -19,14 +19,17 @@ F:/AiNotifier/
 │       ├── AutoStartManager.cs                    # 开机自启注册表管理
 │       ├── UserActivityDetector.cs                # 用户活动检测（Win32）
 │       ├── HookManager.cs                         # Claude Code Hook 管理
-│       ├── BubbleWindow.xaml / BubbleWindow.xaml.cs           # 碎碎念窗口
+│       ├── NudgeWindow.xaml / NudgeWindow.xaml.cs             # 碎碎念窗口
 │       ├── NotificationBubbleWindow.xaml / .xaml.cs           # 项目通知气泡窗口
 │       ├── MessageEditorWindow.xaml / MessageEditorWindow.xaml.cs  # 消息编辑对话框
 │       ├── SoundSettingsWindow.xaml / SoundSettingsWindow.xaml.cs  # 音效设置弹窗
+│       ├── LocalizationService.cs                     # 多语言服务（单例，INotifyPropertyChanged）
 │       └── Resources/
 │           ├── alert-1.wav ~ alert-4.wav          # 4 个内置提示音
-│           ├── bubble-pop.mp3                     # 气泡音效
-│           └── app.ico                            # 应用图标（天蓝机器人）
+│           ├── bubble-pop.mp3                     # 碎碎念音效
+│           ├── app.ico                            # 应用图标（天蓝机器人）
+│           ├── Strings.resx                       # 中文字符串资源（默认 culture）
+│           └── Strings.en.resx                    # 英文字符串资源
 ├── tools/
 │   └── IconGen/                                   # ICO 图标生成工具
 ├── .gitignore
@@ -94,14 +97,14 @@ F:/AiNotifier/
 - 路由：
   - `GET /notify` → 触发通知提醒（AlertType.Notification）
   - `GET /stop` → 触发回应完毕提醒（AlertType.Stop）
-  - `GET /bubble` → 触发气泡提醒
+  - `GET /start` → 触发碎碎念
   - `GET /status` → 返回当前状态
 - 后台线程运行，通过事件通知 UI 线程
 
 ### 3. SoundManager（音频管理）
 
 - 使用 `MediaPlayer` 播放音效文件
-- 内置 4 个提示音（alert-1 ~ alert-4）+ bubble-pop 音效
+- 内置 4 个提示音（alert-1 ~ alert-4）+ 碎碎念音效（bubble-pop）
 - `SetSound(soundId, customPath)` 切换音效
 - `PlayLooping()` 长提醒循环播放
 - `PlayOnce()` 短提醒单次播放
@@ -120,7 +123,8 @@ F:/AiNotifier/
   - `GradualVolume`：渐强音量开关
   - `ShortMode`：短提醒模式
   - `AlertTimeoutSeconds`：长提醒超时
-  - `BubbleEnabled` / `BubbleCooldownMinutes` / `CustomBubbleMessages`：气泡设置
+  - `NudgeEnabled` / `NudgeCooldownMinutes` / `NudgeTriggerMode` / `NudgeOrderMode` / `NudgeStaySeconds` / `CustomNudgeMessages`：碎碎念设置（`NudgeStaySeconds` 控制停留时长，默认 10 秒，可选 5/10/15/20）
+  - `Language`：语言偏好（null=自动检测，"zh-CN"/"en"=手动选择）
 - 旧版本迁移：`SoundId` → `StopSoundId`，`CustomSoundPath` → `StopCustomSoundPath`
 
 ### 5. UserActivityDetector（用户活动检测）
@@ -142,19 +146,19 @@ F:/AiNotifier/
 - 绑定时同时添加三个 hook：
   - `Stop` → `curl -s http://localhost:19836/stop`（回应完毕提醒）
   - `Notification` → `curl -s http://localhost:19836/notify`（通知提醒）
-  - `UserPromptSubmit` → `curl -s http://localhost:19836/bubble`（碎碎念）
+  - `UserPromptSubmit` → `curl -s http://localhost:19836/start`（碎碎念）
 - 解绑时同时移除三个 hook
 
-### 8. BubbleWindow（碎碎念窗口）
+### 8. NudgeWindow（碎碎念窗口）
 
 - 独立的无边框透明 Topmost 窗口（不影响 MainWindow 布局）
 - 白色圆角卡片（#FFFFFF 背景），底部与悬浮球重叠
 - 定位逻辑：默认在悬浮球下方，屏幕底部时切换到上方
-- 动画：淡入 300ms → 停留 10 秒 → 淡出 500ms → 自动关闭
+- 动画：淡入 300ms → 停留（由 `staySeconds` 参数控制，默认 10 秒）→ 淡出 500ms → 自动关闭
 
 ### 8.1 NotificationBubbleWindow（项目通知气泡）
 
-- 独立的无边框透明 Topmost 窗口，与 BubbleWindow 类似但行为不同
+- 独立的无边框透明 Topmost 窗口，与 NudgeWindow 类似但行为不同
 - 可点击关闭（`IsHitTestVisible=True`），显示 Hand 光标
 - 累积显示多条项目通知（每行一条），如 "AiNotifier 回复完毕"
 - 内置活动检测：轮询 `GetLastInputTick()`，检测到用户活动后启动 5 秒倒计时淡出
@@ -174,7 +178,20 @@ F:/AiNotifier/
 ### 10. MessageEditorWindow（消息编辑对话框）
 
 - 浅色模态对话框，多行 TextBox 编辑提醒消息（一行一条）
-- 确定后按换行拆分保存到 `AppSettings.CustomBubbleMessages`
+- 确定后按换行拆分保存到 `AppSettings.CustomNudgeMessages`
+
+### 11. LocalizationService（多语言服务）
+
+- 单例模式，实现 `INotifyPropertyChanged`
+- 使用 .resx 资源文件（`Strings.resx` 中文默认 + `Strings.en.resx` 英文）
+- `ResourceManager` 读取当前 `CultureInfo.CurrentUICulture` 对应的字符串
+- `Get(key)` / `Get(key, args)` 供 C# 代码调用
+- `SwitchLanguage(cultureCode)` 切换语言：设置 `CultureInfo.CurrentUICulture` 并触发 `PropertyChanged("Item[]")`
+- 启动时在 `App.OnStartup` 中初始化：优先使用用户保存的语言偏好，否则自动检测系统语言
+- `AppSettings.Language` 字段（`string?`）：null 表示自动检测，"zh-CN"/"en" 表示手动选择
+- 右键菜单 "Language/语言"（双语 Header，不做本地化）提供手动切换
+- 切换时调用 `RefreshStaticUI()` 更新所有非绑定的 UI 元素（菜单 Header、tooltip、托盘菜单）
+- 发布时英文卫星程序集输出到 `publish/portable/en/AiNotifier.resources.dll`
 
 ## 关键流程
 

@@ -10,6 +10,7 @@ namespace AiNotifier;
 
 public partial class SoundSettingsWindow : Window
 {
+    private static LocalizationService L => LocalizationService.Instance;
     private readonly SoundManager _sound;
 
     // Results
@@ -17,9 +18,6 @@ public partial class SoundSettingsWindow : Window
     public string? ResultStopCustomPath { get; private set; }
     public string ResultNotificationSoundId { get; private set; } = "alert-3";
     public string? ResultNotificationCustomPath { get; private set; }
-    public double ResultVolume { get; private set; } = 0.6;
-    public bool ResultGradualVolume { get; private set; }
-
     // Current selections
     private string _stopSoundId;
     private string? _stopCustomPath;
@@ -36,15 +34,16 @@ public partial class SoundSettingsWindow : Window
 
         InitializeComponent();
 
-        VolumeSlider.Value = settings.Volume;
-        VolumeLabel.Text = $"{(int)(settings.Volume * 100)}%";
-        GradualVolumeCheck.IsChecked = settings.GradualVolume;
-
-        VolumeSlider.ValueChanged += (_, args) =>
-        {
-            VolumeLabel.Text = $"{(int)(args.NewValue * 100)}%";
-            _sound.Volume = args.NewValue;
-        };
+        // Apply localized text
+        Title = L.Get("Sound_WindowTitle");
+        StopSectionLabel.Text = L.Get("Sound_StopSection");
+        NotifSectionLabel.Text = L.Get("Sound_NotifSection");
+        StopPreviewBtn.Content = L.Get("Sound_Preview");
+        NotifPreviewBtn.Content = L.Get("Sound_Preview");
+        StopCustomBtn.Content = L.Get("Sound_Custom");
+        NotifCustomBtn.Content = L.Get("Sound_Custom");
+        CancelBtn.Content = L.Get("Dialog_Cancel");
+        OKBtn.Content = L.Get("Dialog_OK");
 
         PopulateCombo(StopSoundCombo, _stopSoundId, _stopCustomPath);
         PopulateCombo(NotifSoundCombo, _notifSoundId, _notifCustomPath);
@@ -57,14 +56,16 @@ public partial class SoundSettingsWindow : Window
     {
         combo.Items.Clear();
 
-        foreach (var sound in SoundManager.BuiltInSounds)
+        for (int i = 0; i < SoundManager.BuiltInSounds.Length; i++)
         {
-            combo.Items.Add(new SoundItem(sound.Id, sound.DisplayName));
+            var sound = SoundManager.BuiltInSounds[i];
+            var name = L.Get($"Sound_Alert{i + 1}");
+            combo.Items.Add(new SoundItem(sound.Id, name));
         }
 
         if (customPath != null)
         {
-            var customName = "♪ " + (Path.GetFileName(customPath) ?? "自定义");
+            var customName = "♪ " + (Path.GetFileName(customPath) ?? L.Get("Sound_CustomLabel"));
             combo.Items.Add(new SoundItem("custom", customName, customPath));
         }
 
@@ -113,8 +114,8 @@ public partial class SoundSettingsWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "选择提示音效文件",
-            Filter = "音频文件|*.wav;*.mp3;*.wma;*.aac|所有文件|*.*",
+            Title = L.Get("Sound_FileDialogTitle"),
+            Filter = L.Get("Sound_FileFilter"),
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic)
         };
         if (dlg.ShowDialog() != true) return;
@@ -148,8 +149,6 @@ public partial class SoundSettingsWindow : Window
         ResultStopCustomPath = _stopCustomPath;
         ResultNotificationSoundId = _notifSoundId;
         ResultNotificationCustomPath = _notifCustomPath;
-        ResultVolume = VolumeSlider.Value;
-        ResultGradualVolume = GradualVolumeCheck.IsChecked == true;
         DialogResult = true;
     }
 

@@ -25,10 +25,19 @@ public class AppSettings
 
     public bool ShortMode { get; set; }
     public int AlertTimeoutSeconds { get; set; } = 60;
-    public bool BubbleEnabled { get; set; } = true;
+    public bool NudgeEnabled { get; set; } = true;
     public bool ProjectBubbleEnabled { get; set; } = true;
-    public int BubbleCooldownMinutes { get; set; }  // 0 = 无冷却
-    public List<string>? CustomBubbleMessages { get; set; }
+    public int NudgeCooldownMinutes { get; set; }  // 0 = 无冷却
+    public int NudgeTriggerMode { get; set; }      // 0 = AI思考时, 1 = 冷却到期时
+    public int NudgeOrderMode { get; set; }        // 0 = 随机, 1 = 顺序
+    public int NudgeStaySeconds { get; set; } = 10; // 碎碎念停留时长
+    public List<string>? CustomNudgeMessages { get; set; }
+
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? ExtensionData { get; set; }
+
+    // Language (null = auto-detect from system, "zh-CN" or "en" = explicit)
+    public string? Language { get; set; }
 
     // Window position (null = use default)
     public double? WindowLeft { get; set; }
@@ -57,6 +66,8 @@ public static class SettingsManager
                 var json = File.ReadAllText(SettingsPath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new();
 
+                bool needSave = false;
+
                 // Migrate legacy SoundId → StopSoundId
                 if (settings.SoundId != null)
                 {
@@ -64,8 +75,33 @@ public static class SettingsManager
                     settings.StopCustomSoundPath = settings.CustomSoundPath;
                     settings.SoundId = null;
                     settings.CustomSoundPath = null;
-                    Save(settings);
+                    needSave = true;
                 }
+
+                // Migrate legacy Bubble* → Nudge*
+                if (settings.ExtensionData != null)
+                {
+                    var ext = settings.ExtensionData;
+                    if (ext.TryGetValue("BubbleEnabled", out var be))
+                    { settings.NudgeEnabled = be.GetBoolean(); needSave = true; }
+                    if (ext.TryGetValue("BubbleCooldownMinutes", out var bcm))
+                    { settings.NudgeCooldownMinutes = bcm.GetInt32(); needSave = true; }
+                    if (ext.TryGetValue("BubbleTriggerMode", out var btm))
+                    { settings.NudgeTriggerMode = btm.GetInt32(); needSave = true; }
+                    if (ext.TryGetValue("BubbleOrderMode", out var bom))
+                    { settings.NudgeOrderMode = bom.GetInt32(); needSave = true; }
+                    if (ext.TryGetValue("BubbleStaySeconds", out var bss))
+                    { settings.NudgeStaySeconds = bss.GetInt32(); needSave = true; }
+                    if (ext.TryGetValue("CustomBubbleMessages", out var cbm))
+                    {
+                        settings.CustomNudgeMessages = cbm.Deserialize<List<string>>(JsonOptions);
+                        needSave = true;
+                    }
+                    if (needSave)
+                        settings.ExtensionData = null;
+                }
+
+                if (needSave) Save(settings);
 
                 return settings;
             }

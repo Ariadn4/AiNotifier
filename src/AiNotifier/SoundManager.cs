@@ -26,9 +26,9 @@ public class SoundManager : IDisposable
     private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "AiNotifier_Sounds");
 
     private MediaPlayer _player = new();
-    private MediaPlayer _bubblePlayer = new();
-    private bool _bubblePendingPlay;
-    private string? _bubblePath;
+    private MediaPlayer _nudgePlayer = new();
+    private bool _nudgePendingPlay;
+    private string? _nudgePath;
     private bool _looping;
     private bool _pendingPlay;
     private double _volume = 0.6;
@@ -79,12 +79,12 @@ public class SoundManager : IDisposable
             }
         };
 
-        _bubblePlayer.MediaOpened += (_, _) =>
+        _nudgePlayer.MediaOpened += (_, _) =>
         {
-            if (_bubblePendingPlay)
+            if (_nudgePendingPlay)
             {
-                _bubblePendingPlay = false;
-                _bubblePlayer.Play();
+                _nudgePendingPlay = false;
+                _nudgePlayer.Play();
             }
         };
 
@@ -184,28 +184,28 @@ public class SoundManager : IDisposable
     }
 
     /// <summary>
-    /// Play the bubble sound effect once using a dedicated player.
+    /// Play the nudge sound effect once using a dedicated player.
     /// </summary>
-    public void PlayBubble(double volume)
+    public void PlayNudge(double volume)
     {
         var path = Path.Combine(TempDir, "bubble-pop.mp3");
         if (!File.Exists(path)) return;
 
-        _bubblePlayer.Volume = volume;
+        _nudgePlayer.Volume = volume;
 
         // If same file already loaded, just seek to start and play
-        if (_bubblePath == path)
+        if (_nudgePath == path)
         {
-            _bubblePlayer.Stop();
-            _bubblePlayer.Position = TimeSpan.Zero;
-            _bubblePlayer.Play();
+            _nudgePlayer.Stop();
+            _nudgePlayer.Position = TimeSpan.Zero;
+            _nudgePlayer.Play();
         }
         else
         {
             // First time or path changed — open async
-            _bubblePath = path;
-            _bubblePendingPlay = true;
-            _bubblePlayer.Open(new Uri(path, UriKind.Absolute));
+            _nudgePath = path;
+            _nudgePendingPlay = true;
+            _nudgePlayer.Open(new Uri(path, UriKind.Absolute));
         }
     }
 
@@ -220,6 +220,6 @@ public class SoundManager : IDisposable
     {
         Stop();
         _player.Close();
-        _bubblePlayer.Close();
+        _nudgePlayer.Close();
     }
 }

@@ -1,4 +1,4 @@
-<Window x:Class="AiNotifier.BubbleWindow"
+<Window x:Class="AiNotifier.NudgeWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None"
@@ -13,8 +13,8 @@
         Opacity="0">
 
     <Grid Margin="12">
-        <!-- Bubble body -->
-        <Border x:Name="BubbleBody"
+        <!-- Nudge body -->
+        <Border x:Name="NudgeBody"
                 Background="White" BorderBrush="#e5e7eb" BorderThickness="1"
                 CornerRadius="12" Padding="16,10"
                 MinWidth="80" MaxWidth="240">
