@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace AiNotifier;
@@ -27,6 +29,15 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
+            // 忽略 WPF 渲染线程失败（多发生于 GPU 驱动复位/休眠唤醒后），
+            // 切换到软件渲染避免再次崩溃
+            if (IsRenderThreadFailure(args.Exception))
+            {
+                try { RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly; } catch { }
+                args.Handled = true;
+                return;
+            }
+
             MessageBox.Show(L.Get("Error_General", args.Exception.Message, args.Exception.StackTrace ?? ""),
                 L.Get("Error_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
@@ -50,6 +61,17 @@ public partial class App : Application
                 L.Get("Error_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    private static bool IsRenderThreadFailure(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException!)
+        {
+            // UCEERR_RENDERTHREADFAILURE = 0x88980406
+            if ((uint)e.HResult == 0x88980406) return true;
+            if (e.InnerException == null) break;
+        }
+        return false;
     }
 
     protected override void OnExit(ExitEventArgs e)
