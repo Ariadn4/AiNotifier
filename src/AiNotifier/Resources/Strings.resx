@@ -34,25 +34,27 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
 
   <!-- Context Menu -->
-  <data name="Menu_AlertToggle" xml:space="preserve"><value>开启提醒</value></data>
-  <data name="Menu_NotificationLog" xml:space="preserve"><value>提醒日志</value></data>
+  <data name="Menu_MasterClose" xml:space="preserve"><value>关闭</value></data>
+  <data name="Menu_MasterOpen" xml:space="preserve"><value>开启</value></data>
   <data name="Menu_SoundSettings" xml:space="preserve"><value>提示音效</value></data>
   <data name="Menu_Volume" xml:space="preserve"><value>音量</value></data>
+  <data name="Menu_SectionAiAlert" xml:space="preserve"><value>AI提醒</value></data>
+  <data name="Menu_AlertTriggerTiming" xml:space="preserve"><value>触发时机</value></data>
+  <data name="Menu_NotificationLog" xml:space="preserve"><value>提醒日志</value></data>
   <data name="Menu_ShortMode" xml:space="preserve"><value>短提醒模式</value></data>
   <data name="Menu_LongAlertDuration" xml:space="preserve"><value>长提醒时长</value></data>
-  <data name="Menu_Nudge" xml:space="preserve"><value>碎碎念</value></data>
+  <data name="Menu_SectionNudge" xml:space="preserve"><value>碎碎念</value></data>
   <data name="Menu_BindClaude" xml:space="preserve"><value>绑定 Claude Code</value></data>
   <data name="Menu_AutoStart" xml:space="preserve"><value>开机自启动</value></data>
   <data name="Menu_Language" xml:space="preserve"><value>语言</value></data>
   <data name="Menu_Exit" xml:space="preserve"><value>退出</value></data>
 
   <!-- Alert Toggle Submenu -->
-  <data name="Menu_AlertNotification" xml:space="preserve"><value>AI 发送通知时提醒</value></data>
-  <data name="Menu_AlertStop" xml:space="preserve"><value>AI 回应完毕时提醒</value></data>
-  <data name="Menu_CloseAll" xml:space="preserve"><value>全部关闭</value></data>
+  <data name="Menu_AlertNotification" xml:space="preserve"><value>AI发送通知</value></data>
+  <data name="Menu_AlertStop" xml:space="preserve"><value>AI回应完毕</value></data>
 
   <!-- Nudge Submenu -->
-  <data name="Menu_EnableNudge" xml:space="preserve"><value>启用碎碎念</value></data>
+  <data name="Menu_EnableNudge" xml:space="preserve"><value>开启碎碎念</value></data>
   <data name="Menu_NudgeStay" xml:space="preserve"><value>停留时长</value></data>
   <data name="Menu_Cooldown" xml:space="preserve"><value>冷却时间</value></data>
   <data name="Menu_NoCooldown" xml:space="preserve"><value>无冷却</value></data>

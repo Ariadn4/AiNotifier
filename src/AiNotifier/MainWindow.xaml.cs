@@ -105,10 +105,6 @@ public partial class MainWindow : Window
     private System.Windows.Point _mouseDownPos;
     private bool _isDragging;
 
-    // Left-click toggle: remember last enabled combination
-    private bool _lastStopEnabled = true;
-    private bool _lastNotificationEnabled = true;
-    private bool _lastNudgeEnabled = true;
 
     public MainWindow()
     {
@@ -142,13 +138,8 @@ public partial class MainWindow : Window
         _shortTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _shortTimer.Tick += (_, _) => OnTimerStop();
 
-        // Initialize last enabled state from settings
-        _lastStopEnabled = _settings.StopAlertEnabled;
-        _lastNotificationEnabled = _settings.NotificationAlertEnabled;
-        _lastNudgeEnabled = _settings.NudgeEnabled;
-
-        // Determine initial state
-        if (!_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled)
+        // Determine initial state from master switch
+        if (!_settings.MasterEnabled)
             _state = AppState.Disabled;
 
         UpdateNudgeTimer();
@@ -400,10 +391,10 @@ public partial class MainWindow : Window
 
     private void StartAlert(AlertType type)
     {
+        if (!_settings.MasterEnabled) return;
         // Check if this specific alert type is enabled
         if (type == AlertType.Stop && !_settings.StopAlertEnabled) return;
         if (type == AlertType.Notification && !_settings.NotificationAlertEnabled) return;
-        if (_state == AppState.Disabled) return;
 
         if (IsRinging)
             StopAlert();
@@ -555,38 +546,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        switch (_state)
-        {
-            case AppState.Enabled:
-                // Save current combination before disabling
-                _lastStopEnabled = _settings.StopAlertEnabled;
-                _lastNotificationEnabled = _settings.NotificationAlertEnabled;
-                _lastNudgeEnabled = _settings.NudgeEnabled;
-                _settings.StopAlertEnabled = false;
-                _settings.NotificationAlertEnabled = false;
-                _settings.NudgeEnabled = false;
-                _state = AppState.Disabled;
-                ApplyVisualState(AppState.Disabled);
-                SaveSettings();
-                UpdateNudgeTimer();
-                break;
-            case AppState.Disabled:
-                // Restore last combination (default to both if both were off)
-                if (!_lastStopEnabled && !_lastNotificationEnabled && !_lastNudgeEnabled)
-                {
-                    _lastStopEnabled = true;
-                    _lastNotificationEnabled = true;
-                    _lastNudgeEnabled = true;
-                }
-                _settings.StopAlertEnabled = _lastStopEnabled;
-                _settings.NotificationAlertEnabled = _lastNotificationEnabled;
-                _settings.NudgeEnabled = _lastNudgeEnabled;
-                _state = AppState.Enabled;
-                ApplyVisualState(AppState.Enabled);
-                SaveSettings();
-                UpdateNudgeTimer();
-                break;
-        }
+        _settings.MasterEnabled = !_settings.MasterEnabled;
+        RecalculateEnabledState();
+        SaveSettings();
+        UpdateNudgeTimer();
     }
 
     private string GetStatusText()
@@ -608,7 +571,7 @@ public partial class MainWindow : Window
     {
         if (IsRinging) return; // Don't change state while ringing
 
-        if (_settings.StopAlertEnabled || _settings.NotificationAlertEnabled || _settings.NudgeEnabled)
+        if (_settings.MasterEnabled)
         {
             _state = AppState.Enabled;
             ApplyVisualState(AppState.Enabled);
@@ -626,7 +589,7 @@ public partial class MainWindow : Window
 
     private void ShowNudge()
     {
-        if (!_settings.NudgeEnabled)
+        if (!_settings.MasterEnabled || !_settings.NudgeEnabled)
             return;
 
         // 冷却到期模式下，忽略 HTTP 触发的碎碎念（由定时器驱动）
@@ -646,7 +609,7 @@ public partial class MainWindow : Window
 
     private void ShowNudgeAuto()
     {
-        if (!_settings.NudgeEnabled)
+        if (!_settings.MasterEnabled || !_settings.NudgeEnabled)
             return;
 
         if (_notificationNudgeWindow is { IsVisible: true })
@@ -693,7 +656,7 @@ public partial class MainWindow : Window
             return;
         if (_settings.NudgeCooldownMinutes <= 0)
             return;
-        if (!_settings.NudgeEnabled)
+        if (!_settings.MasterEnabled || !_settings.NudgeEnabled)
             return;
 
         _nudgeCooldownTimer = new DispatcherTimer
@@ -710,8 +673,12 @@ public partial class MainWindow : Window
 
     private void ShowProjectBubble(string? cwd, AlertType type)
     {
-        if (!_settings.ProjectBubbleEnabled || string.IsNullOrWhiteSpace(cwd))
+        if (!_settings.MasterEnabled || !_settings.ProjectBubbleEnabled || string.IsNullOrWhiteSpace(cwd))
             return;
+
+        // Don't show bubble if the corresponding alert type is disabled
+        if (type == AlertType.Stop && !_settings.StopAlertEnabled) return;
+        if (type == AlertType.Notification && !_settings.NotificationAlertEnabled) return;
 
         // 日志气泡出现时关闭碎碎念
         _nudgeWindow?.Close();
@@ -807,15 +774,30 @@ public partial class MainWindow : Window
         _nudgeWindow?.Close();
         _notificationNudgeWindow?.SuppressTopmost(true);
 
+        // Master toggle
+        MenuMasterToggle.Header = _settings.MasterEnabled ? L.Get("Menu_MasterClose") : L.Get("Menu_MasterOpen");
+
+        // AI Alert section
+        bool hasAlertTrigger = _settings.StopAlertEnabled || _settings.NotificationAlertEnabled;
+        MenuProjectBubble.IsChecked = _settings.ProjectBubbleEnabled;
+        MenuProjectBubble.IsEnabled = hasAlertTrigger;
         MenuShortMode.IsChecked = _settings.ShortMode;
         MenuAlertTimeout.Visibility = _settings.ShortMode ? Visibility.Collapsed : Visibility.Visible;
-        MenuProjectBubble.IsChecked = _settings.ProjectBubbleEnabled;
+
+        // Nudge section
+        MenuEnableNudge.IsChecked = _settings.NudgeEnabled;
+
+        // Other
         MenuAutoStart.IsChecked = AutoStartManager.IsEnabled;
         MenuBindClaude.IsChecked = HookManager.IsClaudeCodeBound();
 
-        BuildAlertToggleMenu();
-        BuildNudgeMenu();
+        // Build dynamic submenus
+        BuildTriggerTimingMenu();
         BuildAlertTimeoutMenu();
+        BuildNudgeStayMenu();
+        BuildNudgeCooldownMenu();
+        BuildNudgeTriggerMenu();
+        BuildNudgeOrderMenu();
         BuildLanguageMenu();
 
         // When menu closes, restore saved sound if preview wasn't confirmed
@@ -833,9 +815,18 @@ public partial class MainWindow : Window
         _sound.Stop();
     }
 
-    private void BuildAlertToggleMenu()
+    private void MenuMasterToggle_Click(object sender, RoutedEventArgs e)
     {
-        MenuToggleAlert.Items.Clear();
+        _settings.MasterEnabled = !_settings.MasterEnabled;
+        if (!_settings.MasterEnabled && IsRinging) StopAlert();
+        RecalculateEnabledState();
+        SaveSettings();
+        UpdateNudgeTimer();
+    }
+
+    private void BuildTriggerTimingMenu()
+    {
+        MenuTriggerTiming.Items.Clear();
 
         var notifItem = new MenuItem
         {
@@ -845,27 +836,12 @@ public partial class MainWindow : Window
             Style = (Style)FindResource("LightMenuItem"),
             StaysOpenOnClick = true,
         };
-        var isAllClosed = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
-
-        var closeAllItem = new MenuItem
-        {
-            Header = L.Get("Menu_CloseAll"),
-            IsCheckable = true,
-            IsChecked = isAllClosed,
-            Style = (Style)FindResource("LightMenuItem"),
-            StaysOpenOnClick = true,
-        };
-
         notifItem.Click += (_, _) =>
         {
             _settings.NotificationAlertEnabled = notifItem.IsChecked;
-            if (notifItem.IsChecked)
-                _lastNotificationEnabled = true;
-            closeAllItem.IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
             SaveSettings();
-            RecalculateEnabledState();
         };
-        MenuToggleAlert.Items.Add(notifItem);
+        MenuTriggerTiming.Items.Add(notifItem);
 
         var stopItem = new MenuItem
         {
@@ -878,74 +854,16 @@ public partial class MainWindow : Window
         stopItem.Click += (_, _) =>
         {
             _settings.StopAlertEnabled = stopItem.IsChecked;
-            if (stopItem.IsChecked)
-                _lastStopEnabled = true;
-            closeAllItem.IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
             SaveSettings();
-            RecalculateEnabledState();
         };
-        MenuToggleAlert.Items.Add(stopItem);
+        MenuTriggerTiming.Items.Add(stopItem);
+    }
 
-        var nudgeItem = new MenuItem
-        {
-            Header = L.Get("Menu_EnableNudge"),
-            IsCheckable = true,
-            IsChecked = _settings.NudgeEnabled,
-            Style = (Style)FindResource("LightMenuItem"),
-            StaysOpenOnClick = true,
-        };
-        nudgeItem.Click += (_, _) =>
-        {
-            _settings.NudgeEnabled = nudgeItem.IsChecked;
-            if (nudgeItem.IsChecked)
-                _lastNudgeEnabled = true;
-            closeAllItem.IsChecked = !_settings.StopAlertEnabled && !_settings.NotificationAlertEnabled && !_settings.NudgeEnabled;
-            SaveSettings();
-            UpdateNudgeTimer();
-            RecalculateEnabledState();
-        };
-        MenuToggleAlert.Items.Add(nudgeItem);
-
-        MenuToggleAlert.Items.Add(new Separator { Style = (Style)FindResource("LightSeparator") });
-
-        closeAllItem.Click += (_, _) =>
-        {
-            if (_settings.StopAlertEnabled || _settings.NotificationAlertEnabled || _settings.NudgeEnabled)
-            {
-                // Currently has something enabled → save & close all
-                _lastStopEnabled = _settings.StopAlertEnabled;
-                _lastNotificationEnabled = _settings.NotificationAlertEnabled;
-                _lastNudgeEnabled = _settings.NudgeEnabled;
-                _settings.StopAlertEnabled = false;
-                _settings.NotificationAlertEnabled = false;
-                _settings.NudgeEnabled = false;
-                notifItem.IsChecked = false;
-                stopItem.IsChecked = false;
-                nudgeItem.IsChecked = false;
-                closeAllItem.IsChecked = true;
-            }
-            else
-            {
-                // Already all closed → restore previous state
-                if (!_lastStopEnabled && !_lastNotificationEnabled && !_lastNudgeEnabled)
-                {
-                    _lastStopEnabled = true;
-                    _lastNotificationEnabled = true;
-                    _lastNudgeEnabled = true;
-                }
-                _settings.StopAlertEnabled = _lastStopEnabled;
-                _settings.NotificationAlertEnabled = _lastNotificationEnabled;
-                _settings.NudgeEnabled = _lastNudgeEnabled;
-                notifItem.IsChecked = _settings.NotificationAlertEnabled;
-                stopItem.IsChecked = _settings.StopAlertEnabled;
-                nudgeItem.IsChecked = _settings.NudgeEnabled;
-                closeAllItem.IsChecked = false;
-            }
-            SaveSettings();
-            RecalculateEnabledState();
-            UpdateNudgeTimer();
-        };
-        MenuToggleAlert.Items.Add(closeAllItem);
+    private void MenuEnableNudge_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.NudgeEnabled = MenuEnableNudge.IsChecked;
+        SaveSettings();
+        UpdateNudgeTimer();
     }
 
     private void MenuSoundSettings_Click(object sender, RoutedEventArgs e)
@@ -979,66 +897,45 @@ public partial class MainWindow : Window
         _sound.Stop();
     }
 
-    private void BuildNudgeMenu()
+    private void BuildNudgeStayMenu()
     {
-        MenuNudge.Items.Clear();
-
-        // Stay duration submenu
-        var stayItem = new MenuItem
-        {
-            Header = L.Get("Menu_NudgeStay"),
-            Style = (Style)FindResource("LightSubmenuItem"),
-        };
-        stayItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
-
-        var stayOptions = new (string Label, int Seconds)[]
+        MenuNudgeStay.Items.Clear();
+        var options = new (string Label, int Seconds)[]
         {
             (L.Get("Menu_SecondsFormat", 5), 5),
             (L.Get("Menu_SecondsFormat", 10), 10),
             (L.Get("Menu_SecondsFormat", 15), 15),
             (L.Get("Menu_SecondsFormat", 20), 20),
         };
-
-        stayItem.SubmenuOpened += (_, _) =>
+        foreach (var (label, seconds) in options)
         {
-            stayItem.Items.Clear();
-            foreach (var (label, seconds) in stayOptions)
+            var opt = new MenuItem
             {
-                var opt = new MenuItem
+                Header = label,
+                IsCheckable = true,
+                IsChecked = _settings.NudgeStaySeconds == seconds,
+                Style = (Style)FindResource("LightMenuItem"),
+                StaysOpenOnClick = true,
+            };
+            var s = seconds;
+            opt.Click += (_, _) =>
+            {
+                _settings.NudgeStaySeconds = s;
+                SaveSettings();
+                foreach (var child in MenuNudgeStay.Items)
                 {
-                    Header = label,
-                    IsCheckable = true,
-                    IsChecked = _settings.NudgeStaySeconds == seconds,
-                    Style = (Style)FindResource("LightMenuItem"),
-                    StaysOpenOnClick = true,
-                };
-                var s = seconds;
-                opt.Click += (_, _) =>
-                {
-                    _settings.NudgeStaySeconds = s;
-                    SaveSettings();
-                    foreach (var child in stayItem.Items)
-                    {
-                        if (child is MenuItem mi)
-                            mi.IsChecked = false;
-                    }
-                    opt.IsChecked = true;
-                };
-                stayItem.Items.Add(opt);
-            }
-        };
-        MenuNudge.Items.Add(stayItem);
+                    if (child is MenuItem mi) mi.IsChecked = false;
+                }
+                opt.IsChecked = true;
+            };
+            MenuNudgeStay.Items.Add(opt);
+        }
+    }
 
-        // Cooldown submenu
-        var cooldownItem = new MenuItem
-        {
-            Header = L.Get("Menu_Cooldown"),
-            Style = (Style)FindResource("LightSubmenuItem"),
-        };
-        // Placeholder for submenu
-        cooldownItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
-
-        var cooldownOptions = new (string Label, int Minutes)[]
+    private void BuildNudgeCooldownMenu()
+    {
+        MenuNudgeCooldown.Items.Clear();
+        var options = new (string Label, int Minutes)[]
         {
             (L.Get("Menu_NoCooldown"), 0),
             (L.Get("Menu_MinutesFormat", 5), 5),
@@ -1050,152 +947,115 @@ public partial class MainWindow : Window
             (L.Get("Menu_MinutesFormat", 35), 35),
             (L.Get("Menu_MinutesFormat", 40), 40),
         };
-
-        cooldownItem.SubmenuOpened += (_, _) =>
+        foreach (var (label, minutes) in options)
         {
-            cooldownItem.Items.Clear();
-            foreach (var (label, minutes) in cooldownOptions)
+            var opt = new MenuItem
             {
-                var opt = new MenuItem
+                Header = label,
+                IsCheckable = true,
+                IsChecked = _settings.NudgeCooldownMinutes == minutes,
+                Style = (Style)FindResource("LightMenuItem"),
+                StaysOpenOnClick = true,
+            };
+            var m = minutes;
+            opt.Click += (_, _) =>
+            {
+                _settings.NudgeCooldownMinutes = m;
+                SaveSettings();
+                UpdateNudgeTimer();
+                foreach (var child in MenuNudgeCooldown.Items)
                 {
-                    Header = label,
-                    IsCheckable = true,
-                    IsChecked = _settings.NudgeCooldownMinutes == minutes,
-                    Style = (Style)FindResource("LightMenuItem"),
-                    StaysOpenOnClick = true,
-                };
-                var m = minutes;
-                opt.Click += (_, _) =>
-                {
-                    _settings.NudgeCooldownMinutes = m;
-                    SaveSettings();
-                    UpdateNudgeTimer();
-                    // Update checkmarks
-                    foreach (var child in cooldownItem.Items)
-                    {
-                        if (child is MenuItem mi)
-                            mi.IsChecked = false;
-                    }
-                    opt.IsChecked = true;
-                };
-                cooldownItem.Items.Add(opt);
-            }
-        };
-        MenuNudge.Items.Add(cooldownItem);
+                    if (child is MenuItem mi) mi.IsChecked = false;
+                }
+                opt.IsChecked = true;
+            };
+            MenuNudgeCooldown.Items.Add(opt);
+        }
+    }
 
-        // Trigger timing submenu
-        var triggerItem = new MenuItem
-        {
-            Header = L.Get("Menu_TriggerTiming"),
-            Style = (Style)FindResource("LightSubmenuItem"),
-        };
-        triggerItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
-
-        var triggerOptions = new (string Label, int Mode)[]
+    private void BuildNudgeTriggerMenu()
+    {
+        MenuNudgeTrigger.Items.Clear();
+        var options = new (string Label, int Mode)[]
         {
             (L.Get("Menu_TriggerOnRequest"), 0),
             (L.Get("Menu_TriggerOnCooldown"), 1),
         };
-
-        triggerItem.SubmenuOpened += (_, _) =>
+        foreach (var (label, mode) in options)
         {
-            triggerItem.Items.Clear();
-            foreach (var (label, mode) in triggerOptions)
+            var opt = new MenuItem
             {
-                var opt = new MenuItem
+                Header = label,
+                IsCheckable = true,
+                IsChecked = _settings.NudgeTriggerMode == mode,
+                Style = (Style)FindResource("LightMenuItem"),
+                StaysOpenOnClick = true,
+            };
+            var m = mode;
+            opt.Click += (_, _) =>
+            {
+                _settings.NudgeTriggerMode = m;
+                SaveSettings();
+                UpdateNudgeTimer();
+                foreach (var child in MenuNudgeTrigger.Items)
                 {
-                    Header = label,
-                    IsCheckable = true,
-                    IsChecked = _settings.NudgeTriggerMode == mode,
-                    Style = (Style)FindResource("LightMenuItem"),
-                    StaysOpenOnClick = true,
-                };
-                var m = mode;
-                opt.Click += (_, _) =>
-                {
-                    _settings.NudgeTriggerMode = m;
-                    SaveSettings();
-                    UpdateNudgeTimer();
-                    foreach (var child in triggerItem.Items)
-                    {
-                        if (child is MenuItem mi) mi.IsChecked = false;
-                    }
-                    opt.IsChecked = true;
-                };
-                triggerItem.Items.Add(opt);
-            }
-        };
-        MenuNudge.Items.Add(triggerItem);
+                    if (child is MenuItem mi) mi.IsChecked = false;
+                }
+                opt.IsChecked = true;
+            };
+            MenuNudgeTrigger.Items.Add(opt);
+        }
+    }
 
-        // Message order submenu
-        var orderItem = new MenuItem
-        {
-            Header = L.Get("Menu_MessageOrder"),
-            Style = (Style)FindResource("LightSubmenuItem"),
-        };
-        orderItem.Items.Add(new MenuItem { Header = "_", Visibility = Visibility.Collapsed });
-
-        var orderOptions = new (string Label, int Mode)[]
+    private void BuildNudgeOrderMenu()
+    {
+        MenuNudgeOrder.Items.Clear();
+        var options = new (string Label, int Mode)[]
         {
             (L.Get("Menu_OrderRandom"), 0),
             (L.Get("Menu_OrderSequential"), 1),
         };
-
-        orderItem.SubmenuOpened += (_, _) =>
+        foreach (var (label, mode) in options)
         {
-            orderItem.Items.Clear();
-            foreach (var (label, mode) in orderOptions)
+            var opt = new MenuItem
             {
-                var opt = new MenuItem
-                {
-                    Header = label,
-                    IsCheckable = true,
-                    IsChecked = _settings.NudgeOrderMode == mode,
-                    Style = (Style)FindResource("LightMenuItem"),
-                    StaysOpenOnClick = true,
-                };
-                var m = mode;
-                opt.Click += (_, _) =>
-                {
-                    _settings.NudgeOrderMode = m;
-                    if (m == 0) _nudgeMessageIndex = 0;
-                    SaveSettings();
-                    foreach (var child in orderItem.Items)
-                    {
-                        if (child is MenuItem mi) mi.IsChecked = false;
-                    }
-                    opt.IsChecked = true;
-                };
-                orderItem.Items.Add(opt);
-            }
-        };
-        MenuNudge.Items.Add(orderItem);
-
-        MenuNudge.Items.Add(new Separator { Style = (Style)FindResource("LightSeparator") });
-
-        // Edit messages
-        var editItem = new MenuItem
-        {
-            Header = L.Get("Menu_EditNudgeContent"),
-            Style = (Style)FindResource("LightMenuItem"),
-        };
-        editItem.Click += (_, _) =>
-        {
-            var messages = _settings.CustomNudgeMessages is { Count: > 0 }
-                ? _settings.CustomNudgeMessages
-                : DefaultNudgeMessages.ToList();
-
-            var editor = new MessageEditorWindow(messages, DefaultNudgeMessages)
-            {
-                Owner = this,
+                Header = label,
+                IsCheckable = true,
+                IsChecked = _settings.NudgeOrderMode == mode,
+                Style = (Style)FindResource("LightMenuItem"),
+                StaysOpenOnClick = true,
             };
-            if (editor.ShowDialog() == true)
+            var m = mode;
+            opt.Click += (_, _) =>
             {
-                _settings.CustomNudgeMessages = editor.ResultMessages;
+                _settings.NudgeOrderMode = m;
+                if (m == 0) _nudgeMessageIndex = 0;
                 SaveSettings();
-            }
+                foreach (var child in MenuNudgeOrder.Items)
+                {
+                    if (child is MenuItem mi) mi.IsChecked = false;
+                }
+                opt.IsChecked = true;
+            };
+            MenuNudgeOrder.Items.Add(opt);
+        }
+    }
+
+    private void MenuNudgeEdit_Click(object sender, RoutedEventArgs e)
+    {
+        var messages = _settings.CustomNudgeMessages is { Count: > 0 }
+            ? _settings.CustomNudgeMessages
+            : DefaultNudgeMessages.ToList();
+
+        var editor = new MessageEditorWindow(messages, DefaultNudgeMessages)
+        {
+            Owner = this,
         };
-        MenuNudge.Items.Add(editItem);
+        if (editor.ShowDialog() == true)
+        {
+            _settings.CustomNudgeMessages = editor.ResultMessages;
+            SaveSettings();
+        }
     }
 
     private void MenuShortMode_Click(object sender, RoutedEventArgs e)
@@ -1321,14 +1181,28 @@ public partial class MainWindow : Window
 
     private void RefreshStaticUI()
     {
-        // Update XAML-defined menu headers
-        MenuToggleAlert.Header = L.Get("Menu_AlertToggle");
+        // Master toggle
+        MenuMasterToggle.Header = _settings.MasterEnabled ? L.Get("Menu_MasterClose") : L.Get("Menu_MasterOpen");
+
+        // AI Alert section
+        SectionAiAlert.Header = L.Get("Menu_SectionAiAlert");
+        MenuTriggerTiming.Header = L.Get("Menu_AlertTriggerTiming");
         MenuProjectBubble.Header = L.Get("Menu_NotificationLog");
-        MenuSoundSettings.Header = L.Get("Menu_SoundSettings");
-        MenuVolume.Header = L.Get("Menu_Volume");
         MenuShortMode.Header = L.Get("Menu_ShortMode");
         MenuAlertTimeout.Header = L.Get("Menu_LongAlertDuration");
-        MenuNudge.Header = L.Get("Menu_Nudge");
+
+        // Nudge section
+        SectionNudge.Header = L.Get("Menu_SectionNudge");
+        MenuEnableNudge.Header = L.Get("Menu_EnableNudge");
+        MenuNudgeStay.Header = L.Get("Menu_NudgeStay");
+        MenuNudgeCooldown.Header = L.Get("Menu_Cooldown");
+        MenuNudgeTrigger.Header = L.Get("Menu_TriggerTiming");
+        MenuNudgeOrder.Header = L.Get("Menu_MessageOrder");
+        MenuNudgeEdit.Header = L.Get("Menu_EditNudgeContent");
+
+        // Sound & other
+        MenuSoundSettings.Header = L.Get("Menu_SoundSettings");
+        MenuVolume.Header = L.Get("Menu_Volume");
         MenuBindClaude.Header = L.Get("Menu_BindClaude");
         MenuAutoStart.Header = L.Get("Menu_AutoStart");
         MenuLanguage.Header = L.Get("Menu_Language");

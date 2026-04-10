@@ -55,6 +55,9 @@ F:/AiNotifier/
 - 拖拽：`MouseLeftButtonDown` → `DragMove()`（3px 阈值区分拖拽和单击）
 - 悬停：`ScaleTransform` 动画放大到 1.1 倍 + `ToolTip` 显示状态文字
 - 右键菜单：浅色主题自定义 ControlTemplate（#FFFFFF 背景，#E2E8F0 边框，圆角 12px）
+  - 菜单结构分模块组织：主开关（关闭/开启）→ 音效设置 → AI提醒模块（触发时机、提醒日志、短提醒模式、长提醒时长）→ 碎碎念模块（开启碎碎念、停留时长、冷却时间、触发时机、消息顺序、编辑内容）→ 其他设置
+  - 模块标题使用 `SectionHeaderMenuItem` 样式（不可点击灰色小字）
+  - 提醒日志联动：触发时机全关时灰显禁用；碎碎念子选项联动：碎碎念未开启时灰显禁用
 
 #### 动画系统（WPF Storyboard）
 

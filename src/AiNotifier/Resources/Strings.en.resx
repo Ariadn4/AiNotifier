@@ -34,22 +34,24 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
 
   <!-- Context Menu -->
-  <data name="Menu_AlertToggle" xml:space="preserve"><value>Alerts</value></data>
-  <data name="Menu_NotificationLog" xml:space="preserve"><value>Alert Log</value></data>
+  <data name="Menu_MasterClose" xml:space="preserve"><value>Disable All</value></data>
+  <data name="Menu_MasterOpen" xml:space="preserve"><value>Enable All</value></data>
   <data name="Menu_SoundSettings" xml:space="preserve"><value>Sound Settings</value></data>
   <data name="Menu_Volume" xml:space="preserve"><value>Volume</value></data>
+  <data name="Menu_SectionAiAlert" xml:space="preserve"><value>AI Alerts</value></data>
+  <data name="Menu_AlertTriggerTiming" xml:space="preserve"><value>Trigger Timing</value></data>
+  <data name="Menu_NotificationLog" xml:space="preserve"><value>Alert Log</value></data>
   <data name="Menu_ShortMode" xml:space="preserve"><value>Short Alert Mode</value></data>
   <data name="Menu_LongAlertDuration" xml:space="preserve"><value>Long Alert Duration</value></data>
-  <data name="Menu_Nudge" xml:space="preserve"><value>Nudge</value></data>
+  <data name="Menu_SectionNudge" xml:space="preserve"><value>Nudge</value></data>
   <data name="Menu_BindClaude" xml:space="preserve"><value>Bind Claude Code</value></data>
   <data name="Menu_AutoStart" xml:space="preserve"><value>Start on Boot</value></data>
   <data name="Menu_Language" xml:space="preserve"><value>Language</value></data>
   <data name="Menu_Exit" xml:space="preserve"><value>Exit</value></data>
 
   <!-- Alert Toggle Submenu -->
-  <data name="Menu_AlertNotification" xml:space="preserve"><value>Alert on AI notification</value></data>
-  <data name="Menu_AlertStop" xml:space="preserve"><value>Alert on AI response complete</value></data>
-  <data name="Menu_CloseAll" xml:space="preserve"><value>Disable All</value></data>
+  <data name="Menu_AlertNotification" xml:space="preserve"><value>AI Notification</value></data>
+  <data name="Menu_AlertStop" xml:space="preserve"><value>AI Response Complete</value></data>
 
   <!-- Nudge Submenu -->
   <data name="Menu_EnableNudge" xml:space="preserve"><value>Enable Nudge</value></data>

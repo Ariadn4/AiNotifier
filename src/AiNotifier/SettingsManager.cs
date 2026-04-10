@@ -5,7 +5,10 @@ namespace AiNotifier;
 
 public class AppSettings
 {
-    // Alert type toggles
+    // Master on/off switch (does not change individual alert/nudge settings)
+    public bool MasterEnabled { get; set; } = true;
+
+    // Alert type toggles (persistent config, independent of MasterEnabled)
     public bool StopAlertEnabled { get; set; } = true;
     public bool NotificationAlertEnabled { get; set; } = true;
 
