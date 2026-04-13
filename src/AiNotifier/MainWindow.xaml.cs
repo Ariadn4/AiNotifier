@@ -464,6 +464,7 @@ public partial class MainWindow : Window
             return;
         }
         StopSound();
+        StopVisual();
     }
 
     private void OnFirstPlayCompleted()
@@ -474,9 +475,7 @@ public partial class MainWindow : Window
         {
             _pendingStopAfterPlay = false;
             StopSound();
-            // Re-arm activity detector for visual persistence
-            var baseline = UserActivityDetector.GetLastInputTick();
-            _activityDetector.Start(baseline);
+            StopVisual();
         }
     }
 
