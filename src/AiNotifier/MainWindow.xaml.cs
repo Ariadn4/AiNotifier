@@ -464,7 +464,6 @@ public partial class MainWindow : Window
             return;
         }
         StopSound();
-        StopVisual();
     }
 
     private void OnFirstPlayCompleted()
