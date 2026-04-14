@@ -78,6 +78,19 @@ public class SoundManager : IDisposable
                 _player.Play();
             }
         };
+        _player.MediaFailed += (_, _) =>
+        {
+            _pendingPlay = false;
+            _looping = false;
+            IsPlaying = false;
+            // Let MainWindow fall through to its "first play done" path so
+            // pending stop logic can resolve instead of hanging forever.
+            if (!HasCompletedFirstPlay)
+            {
+                HasCompletedFirstPlay = true;
+                FirstPlayCompleted?.Invoke();
+            }
+        };
 
         _nudgePlayer.MediaOpened += (_, _) =>
         {

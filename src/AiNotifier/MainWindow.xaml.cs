@@ -252,6 +252,45 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show(L.Get("Error_HttpServer", ex.Message),
                 "AI Notifier", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+
+        // Force recreate render surface after sleep/wake or display changes —
+        // these are the usual triggers for UCEERR_RENDERTHREADFAILURE, so we
+        // preemptively reset instead of waiting for the exception.
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+    }
+
+    private void OnPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+            Dispatcher.BeginInvoke(new Action(RecreateRenderSurface), DispatcherPriority.Background);
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(RecreateRenderSurface), DispatcherPriority.Background);
+    }
+
+    private void RecreateRenderSurface()
+    {
+        try
+        {
+            if (!IsLoaded) return;
+            Hide();
+            Show();
+            EnsureOnScreen();
+        }
+        catch { }
+    }
+
+    private void EnsureOnScreen()
+    {
+        var workArea = SystemParameters.WorkArea;
+        if (Left < workArea.Left - Width || Left > workArea.Right || Top < workArea.Top - Height || Top > workArea.Bottom)
+        {
+            Left = workArea.Right - Width - 20;
+            Top = workArea.Height * 2 / 3;
+        }
     }
 
     #region Visual State
@@ -409,6 +448,10 @@ public partial class MainWindow : Window
         _state = type == AlertType.Stop ? AppState.RingingStop : AppState.RingingNotification;
         ApplyVisualState(_state);
 
+        // Bind detector lifecycle to visual state: start immediately so we still
+        // catch user activity even if media Open fails / never fires MediaOpened.
+        _activityDetector.Start(UserActivityDetector.GetLastInputTick());
+
         if (_settings.ShortMode)
         {
             _sound.PlayOnce();
@@ -428,15 +471,14 @@ public partial class MainWindow : Window
             }
             _timeoutTimer.Start();
         }
-        // Activity detector is started in OnPlaybackStarted with a fresh baseline
-        // to avoid race between async media Open and user input detection
     }
 
     private void OnPlaybackStarted()
     {
         if (!IsRinging) return;
-        var baselineTick = UserActivityDetector.GetLastInputTick();
-        _activityDetector.Start(baselineTick);
+        // Refresh baseline so input that happened between StartAlert and MediaOpened
+        // (a ~100ms window) isn't mistaken for a dismiss gesture.
+        _activityDetector.Start(UserActivityDetector.GetLastInputTick());
     }
 
     private void OnUserActivity()
@@ -1223,6 +1265,9 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+
         if (_trayIcon != null)
         {
             _trayIcon.Visible = false;

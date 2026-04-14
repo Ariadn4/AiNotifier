@@ -133,9 +133,10 @@ F:/AiNotifier/
 ### 5. UserActivityDetector（用户活动检测）
 
 - 调用 Win32 API `GetLastInputInfo` 获取最后一次输入时间
-- 在响铃期间（长提醒和短提醒均启用），每秒检测一次
+- 生命周期绑定「视觉摇动状态」：`StartAlert` 进入 Ringing 时立即启动，`StopVisual` 时停止。**不依赖声音是否成功播放**（避免音频设备失效时检测器从未启动，导致视觉永久卡在摇动状态）
+- `OnPlaybackStarted` 会在 `MediaOpened` 后刷新一次 baseline，屏蔽 StartAlert → MediaOpened 之间 ~100ms 内的用户输入
 - 如果检测到新的用户输入 → 停止声音和视觉效果
-- 使用 `DispatcherTimer` 定时轮询
+- 使用 `DispatcherTimer` 定时轮询，每秒一次
 
 ### 6. AutoStartManager（开机自启）
 

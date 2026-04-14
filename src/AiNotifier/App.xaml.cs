@@ -34,6 +34,20 @@ public partial class App : Application
             if (IsRenderThreadFailure(args.Exception))
             {
                 try { RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly; } catch { }
+                // Existing window's composition surface is already busted — the render
+                // mode switch only helps future windows. Force recreate the HwndTarget
+                // by Hide/Show so the ball doesn't stay frozen/invisible.
+                try
+                {
+                    if (Current?.MainWindow is Window w && w.IsLoaded)
+                    {
+                        w.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            try { w.Hide(); w.Show(); } catch { }
+                        }), DispatcherPriority.Background);
+                    }
+                }
+                catch { }
                 args.Handled = true;
                 return;
             }
